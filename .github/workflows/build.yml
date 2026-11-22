@@ -2,7 +2,11 @@ name: APK derle
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -24,3 +28,10 @@ jobs:
         with:
           name: Amperimetre-apk
           path: Amperimetre.apk
+      - name: Sürüm (Release) olarak yayınla
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" Amperimetre.apk \
+            --title "Amperimetre v1.0.${{ github.run_number }}" \
+            --notes "Şarj akımı ölçer. Ekran kapanınca ölçüm sıfırlanmaz." --latest
