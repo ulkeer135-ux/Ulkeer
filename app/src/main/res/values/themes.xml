@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Annem" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/cream</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+
+    <color name="cream">#FBF7F0</color>
+    <color name="icon_bg">#1F4E9C</color>
+</resources>
