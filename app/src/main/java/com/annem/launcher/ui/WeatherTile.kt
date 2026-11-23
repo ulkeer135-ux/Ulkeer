@@ -3,7 +3,11 @@ package com.annem.launcher.ui
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -134,7 +138,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
     }
 
     val current = weather
-    val look = current?.let { weatherLook(it.code, it.isDay) }
+    val look = weatherLook(current?.code ?: -1, current?.isDay ?: true)
     val description = when {
         current != null -> weatherDescription(current.code)
         offline -> "İnternet yok"
@@ -146,87 +150,135 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
     } else {
         "$placeName hava durumu: $description"
     }
+    val shape = RoundedCornerShape(30.dp)
 
-    Surface(
-        onClick = { Actions.openGoogleWeather(context, placeName) },
-        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = spoken },
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        border = BorderStroke(2.dp, Palette.WeatherLine),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    // Kart, havaya göre renk alır (gece lacivert, gündüz mavi, yağmurda gri-mavi…);
+    // altında bir ton koyu "gölge" şeridi.
+    Box(modifier = modifier.semantics(mergeDescendants = true) { contentDescription = spoken }) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 6.dp)
+                .clip(shape)
+                .background(look.shadow),
+        )
+        Surface(
+            onClick = { Actions.openGoogleWeather(context, placeName) },
+            modifier = Modifier.fillMaxSize().padding(bottom = 6.dp),
+            shape = shape,
+            color = look.sky,
+            contentColor = Color.White,
         ) {
-            Icon(
-                imageVector = look?.icon ?: Icons.Rounded.CloudOff,
-                contentDescription = null,
-                tint = look?.tint ?: Palette.InkSoft,
-                modifier = Modifier.size(72.dp),
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                // 1. satır: büyük sıcaklık + en yüksek / en düşük
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (current != null) "${current.temperature}°" else "--°",
-                        fontSize = 54.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Palette.Ink,
-                        lineHeight = 56.sp,
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (look.stars) {
+                    // Gece: birkaç küçük yıldız (süs).
+                    Star(Modifier.align(Alignment.TopStart).offset(x = 130.dp, y = 18.dp), 5.dp)
+                    Star(Modifier.align(Alignment.BottomStart).offset(x = 210.dp, y = (-20).dp), 4.dp)
+                    Star(Modifier.align(Alignment.TopEnd).offset(x = (-36).dp, y = 26.dp), 6.dp)
+                    Star(Modifier.align(Alignment.BottomEnd).offset(x = (-80).dp, y = (-34).dp), 4.dp)
+                }
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = look.icon,
+                        contentDescription = null,
+                        tint = look.iconTint,
+                        modifier = Modifier.size(70.dp),
                     )
-                    if (current != null) {
-                        Spacer(Modifier.width(14.dp))
-                        Column {
-                            Text("↑ ${current.max}°", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, lineHeight = 24.sp)
-                            Text("↓ ${current.min}°", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, lineHeight = 24.sp)
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                        // 1. satır: büyük sıcaklık + en yüksek / en düşük
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (current != null) "${current.temperature}°" else "--°",
+                                fontSize = 54.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                lineHeight = 56.sp,
+                            )
+                            if (current != null) {
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text("↑ ${current.max}°", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Palette.OnSkySoft, lineHeight = 22.sp)
+                                    Text("↓ ${current.min}°", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Palette.OnSkySoft, lineHeight = 22.sp)
+                                }
+                            }
+                        }
+                        // 2. satır: durum, gerekirse küçülerek tam sığar
+                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                            val fitted = (maxWidth.value / (description.length * 0.58f)).coerceIn(16f, 23f)
+                            Text(
+                                description,
+                                fontSize = fitted.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        // 3. satır: konum
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Rounded.LocationOn,
+                                contentDescription = null,
+                                tint = Palette.OnSkySoft,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                placeName,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Palette.OnSkySoft,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
-                }
-                // 2. satır: durum ("Parçalı bulutlu"), gerekirse küçülerek tam sığar
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val fitted = (maxWidth.value / (description.length * 0.6f)).coerceIn(16f, 24f)
-                    Text(
-                        description,
-                        fontSize = fitted.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Palette.Ink,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                // 3. satır: konum
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.LocationOn,
-                        contentDescription = null,
-                        tint = Palette.InkSoft,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        placeName,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Palette.InkSoft,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
         }
     }
 }
 
-private class WeatherLook(val icon: ImageVector, val tint: Color)
+@Composable
+private fun Star(modifier: Modifier, size: androidx.compose.ui.unit.Dp) {
+    Box(modifier = modifier.size(size).clip(CircleShape).background(Palette.Moon))
+}
 
-private fun weatherLook(code: Int, isDay: Boolean): WeatherLook = when (code) {
-    0 -> if (isDay) WeatherLook(Icons.Rounded.WbSunny, Palette.Sun) else WeatherLook(Icons.Rounded.NightsStay, Palette.Night)
-    1, 2 -> WeatherLook(Icons.Rounded.FilterDrama, Palette.Cloudy)
-    3, 45, 48 -> WeatherLook(Icons.Rounded.Cloud, Palette.Cloudy)
-    51, 53, 55, 56, 57 -> WeatherLook(Icons.Rounded.Grain, Palette.Rain)
-    61, 63, 65, 66, 67, 80, 81, 82 -> WeatherLook(Icons.Rounded.Umbrella, Palette.Rain)
-    71, 73, 75, 77, 85, 86 -> WeatherLook(Icons.Rounded.AcUnit, Palette.Snow)
-    95, 96, 99 -> WeatherLook(Icons.Rounded.FlashOn, Palette.Storm)
-    else -> WeatherLook(Icons.Rounded.Cloud, Palette.Cloudy)
+private class WeatherLook(
+    val icon: ImageVector,
+    val iconTint: Color,
+    val sky: Color,
+    val shadow: Color,
+    val stars: Boolean = false,
+)
+
+private fun weatherLook(code: Int, isDay: Boolean): WeatherLook {
+    val night = !isDay
+    return when (code) {
+        0 -> if (isDay) {
+            WeatherLook(Icons.Rounded.WbSunny, Palette.SunYellow, Palette.SkyDay, Palette.SkyDayShadow)
+        } else {
+            WeatherLook(Icons.Rounded.NightsStay, Palette.Moon, Palette.SkyNight, Palette.SkyNightShadow, stars = true)
+        }
+        1, 2 -> if (isDay) {
+            WeatherLook(Icons.Rounded.FilterDrama, Color.White, Palette.SkyDay, Palette.SkyDayShadow)
+        } else {
+            WeatherLook(Icons.Rounded.NightsStay, Palette.Moon, Palette.SkyNight, Palette.SkyNightShadow, stars = true)
+        }
+        3, 45, 48 -> WeatherLook(Icons.Rounded.Cloud, Color.White, Palette.SkyCloudy, Palette.SkyCloudyShadow)
+        51, 53, 55, 56, 57 -> WeatherLook(Icons.Rounded.Grain, Color.White, Palette.SkyRain, Palette.SkyRainShadow)
+        61, 63, 65, 66, 67, 80, 81, 82 -> WeatherLook(Icons.Rounded.Umbrella, Color.White, Palette.SkyRain, Palette.SkyRainShadow)
+        71, 73, 75, 77, 85, 86 -> WeatherLook(Icons.Rounded.AcUnit, Color.White, Palette.SkySnow, Palette.SkySnowShadow)
+        95, 96, 99 -> WeatherLook(Icons.Rounded.FlashOn, Palette.SunYellow, Palette.SkyStorm, Palette.SkyStormShadow)
+        // Veri yokken: günün saatine uygun sakin bir gökyüzü.
+        else -> if (night) {
+            WeatherLook(Icons.Rounded.CloudOff, Palette.OnSkySoft, Palette.SkyNight, Palette.SkyNightShadow)
+        } else {
+            WeatherLook(Icons.Rounded.CloudOff, Palette.OnSkySoft, Palette.SkyDay, Palette.SkyDayShadow)
+        }
+    }
 }

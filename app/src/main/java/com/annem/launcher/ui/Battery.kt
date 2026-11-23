@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -119,17 +120,22 @@ fun BatteryIndicator(state: BatteryState) {
     }
     val description = "Şarj yüzde ${state.percent}" + if (state.charging) ", şarj oluyor" else ""
 
+    // Beyaz "hap" içinde: pil çizimi (şarjdayken şimşek) ve yüzde.
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description },
+        modifier = Modifier
+            .semantics(mergeDescendants = true) { contentDescription = description }
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color.White)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         if (state.charging) {
-            Icon(Icons.Rounded.Bolt, contentDescription = null, tint = color, modifier = Modifier.size(30.dp))
+            Icon(Icons.Rounded.Bolt, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
         } else {
             BatteryGlyph(state.percent, color)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
         }
-        Text("%${state.percent}", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = color)
+        Text("%${state.percent}", fontSize = 24.sp, fontWeight = FontWeight.Black, color = color)
     }
 }
 
@@ -138,13 +144,13 @@ private fun BatteryGlyph(percent: Int, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .width(38.dp)
-                .height(22.dp)
+                .width(32.dp)
+                .height(19.dp)
                 .border(2.5.dp, color, RoundedCornerShape(6.dp)),
         ) {
             Box(
                 modifier = Modifier
-                    .padding(3.5.dp)
+                    .padding(3.dp)
                     .fillMaxHeight()
                     .fillMaxWidth((percent / 100f).coerceIn(0.08f, 1f))
                     .background(color, RoundedCornerShape(2.dp)),

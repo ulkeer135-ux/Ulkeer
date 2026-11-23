@@ -84,6 +84,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     var cityDraft by remember { mutableStateOf(store.weatherCity) }
+    var greetingDraft by remember { mutableStateOf(store.greetingName) }
     var cityMessage by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
 
@@ -102,6 +103,22 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             fontSize = 16.sp,
             color = Palette.InkSoft,
         )
+
+        // --- Selam ---
+        SectionTitle("Ana ekrandaki selam")
+        Hint("Saatin üstünde \"İyi akşamlar, ...\" diye görünen hitap. Boş bırakılırsa yalnızca selam yazar.")
+        OutlinedTextField(
+            value = greetingDraft,
+            onValueChange = { greetingDraft = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(
+            enabled = greetingDraft.trim() != store.greetingName,
+            onClick = { store.updateGreetingName(greetingDraft) },
+        ) { Text("Kaydet", fontSize = 18.sp) }
+
+        HorizontalDivider()
 
         // --- Ekranı kapat ---
         SectionTitle("Ekranı Kapat düğmesi")

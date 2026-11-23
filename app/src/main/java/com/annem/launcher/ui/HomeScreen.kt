@@ -2,7 +2,21 @@ package com.annem.launcher.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -22,12 +36,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -87,19 +99,38 @@ fun HomeScreen(
         ScreenLock.reportActivation(context)
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+    // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .offset(x = 90.dp, y = (-120).dp)
+            .size(300.dp)
+            .clip(CircleShape)
+            .background(Palette.BlobPeach),
+    )
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .offset(x = (-130).dp, y = 130.dp)
+            .size(220.dp)
+            .clip(CircleShape)
+            .background(Palette.BlobPink),
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ClockHeader(onSecretHold = onOpenSettings)
+        ClockHeader(greetingName = store.greetingName, onSecretHold = onOpenSettings)
 
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // Hava durumu kutusu diğer satırlardan %40 daha yüksek.
             WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1.4f))
@@ -127,6 +158,7 @@ fun HomeScreen(
             val result = ScreenLock.lock(context)
             if (result != LockResult.LOCKED) lockProblem = result
         })
+    }
     }
 
     lockProblem?.let { problem ->
@@ -177,7 +209,7 @@ fun HomeScreen(
  * girmeyeceği, yakınların bildiği gizli giriş.
  */
 @Composable
-private fun ClockHeader(onSecretHold: () -> Unit) {
+private fun ClockHeader(greetingName: String, onSecretHold: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var now by remember { mutableStateOf(LocalDateTime.now()) }
 
@@ -194,6 +226,13 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
     val time = now.format(DateTimeFormatter.ofPattern("HH:mm", TURKISH))
     val date = now.format(DateTimeFormatter.ofPattern("d MMMM EEEE", TURKISH))
     val battery = rememberBatteryState()
+    val greeting = when (now.hour) {
+        in 5..10 -> "Günaydın"
+        in 11..16 -> "İyi günler"
+        in 17..21 -> "İyi akşamlar"
+        else -> "İyi geceler"
+    }
+    val greetingText = if (greetingName.isBlank()) greeting else "$greeting, $greetingName"
 
     Column(
         modifier = Modifier
@@ -211,6 +250,27 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
                 }
             },
     ) {
+        // Saate göre selam: "İyi akşamlar, Anneciğim"
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.Favorite,
+                contentDescription = null,
+                tint = Palette.Heart,
+                modifier = Modifier.size(26.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                val fitted = (maxWidth.value / (greetingText.length * 0.55f)).coerceIn(16f, 22f)
+                Text(
+                    greetingText,
+                    fontSize = fitted.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Palette.Greeting,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             ClockText(
                 time = time,
@@ -220,7 +280,7 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
             )
             battery?.let { BatteryIndicator(it) }
         }
-        Text(date, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft)
+        Text(date, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, lineHeight = 28.sp)
         if (battery?.low == true) {
             Text(
                 "Şarj azaldı, telefonu şarja tak",
@@ -233,7 +293,7 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
     }
 }
 
-private const val CLOCK_SP = 70f
+private const val CLOCK_SP = 84f
 
 /**
  * Saat her zaman tek satırda kalır: 70 sp sığmıyorsa (dar ekran, geniş yazı tipi)
@@ -245,16 +305,16 @@ private fun ClockText(time: String, modifier: Modifier) {
     BoxWithConstraints(modifier = modifier) {
         val available = constraints.maxWidth
         val fontSize = remember(time, available) {
-            val style = TextStyle(fontSize = CLOCK_SP.sp, fontWeight = FontWeight.ExtraBold)
+            val style = TextStyle(fontSize = CLOCK_SP.sp, fontWeight = FontWeight.Black, fontFamily = Nunito)
             val needed = measurer.measure(time, style = style, softWrap = false, maxLines = 1).size.width
             if (needed <= available || needed == 0) CLOCK_SP else CLOCK_SP * available / needed * 0.97f
         }
         Text(
             time,
             fontSize = fontSize.sp,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.Black,
             color = Palette.Ink,
-            lineHeight = (fontSize + 4f).sp,
+            lineHeight = (fontSize + 2f).sp,
             maxLines = 1,
             softWrap = false,
         )
@@ -265,7 +325,7 @@ private fun ClockText(time: String, modifier: Modifier) {
 private fun ColumnScope.TileRow(content: @Composable (Modifier) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().weight(1f),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         content(Modifier.weight(1f).fillMaxHeight())
     }
@@ -308,12 +368,16 @@ private fun SlotTile(
             if (!Actions.openApp(context, slot.packageName)) onPickApp(slotId)
         }
     } else {
-        Tile("Uygulama ekle", Icons.Rounded.AddCircle, background, line, iconTint, modifier) {
+        Tile("Uygulama ekle", Icons.Rounded.Add, Palette.EmptyBg, Palette.EmptyLine, Palette.EmptyIcon, modifier, empty = true) {
             onPickApp(slotId)
         }
     }
 }
 
+/**
+ * Beyaz, yuvarlak köşeli kutu; altında renkli bir "gölge" şeridi (basılabilir görünür),
+ * ortada renkli balon içinde simge ve büyük yazı. Boş kutu: kesikli çerçeve.
+ */
 @Composable
 private fun Tile(
     label: String,
@@ -323,52 +387,84 @@ private fun Tile(
     iconTint: Color,
     modifier: Modifier,
     appIcon: ImageBitmap? = null,
+    empty: Boolean = false,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = background,
-        border = BorderStroke(2.dp, line),
-    ) {
-        BoxWithConstraints(contentAlignment = Alignment.Center) {
-            // Uzun etiketler ("Fotoğraflar") dar telefonlarda tek satıra sığsın.
-            val fitted = ((maxWidth.value - 16f) / (label.length * 0.62f)).coerceIn(20f, 28f)
-            // Kısa ekranlarda simge küçülür, yazı küçülmez.
-            val iconSize = if (maxHeight.value < 110f) 40.dp else 52.dp
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (appIcon != null) {
-                    Image(bitmap = appIcon, contentDescription = null, modifier = Modifier.size(iconSize))
-                } else {
-                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
+    val shape = RoundedCornerShape(28.dp)
+    Box(modifier = modifier) {
+        if (!empty) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 6.dp)
+                    .clip(shape)
+                    .background(line),
+            )
+        }
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 6.dp)
+                .then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
+            shape = shape,
+            color = if (empty) Color.Transparent else Color.White,
+        ) {
+            BoxWithConstraints(contentAlignment = Alignment.Center) {
+                // Uzun etiketler dar telefonlarda tek satıra sığsın.
+                val fitted = ((maxWidth.value - 16f) / (label.length * 0.58f)).coerceIn(19f, 26f)
+                // Kısa ekranlarda balon küçülür, yazı küçülmez.
+                val bubble = if (maxHeight.value < 112f) 50.dp else 62.dp
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (appIcon != null) {
+                        Image(bitmap = appIcon, contentDescription = null, modifier = Modifier.size(bubble))
+                    } else {
+                        Box(
+                            modifier = Modifier.size(bubble).clip(CircleShape).background(background),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(bubble * 0.56f))
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        label,
+                        fontSize = fitted.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (empty) Palette.EmptyIcon else Palette.Ink,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                    )
                 }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    label,
-                    fontSize = fitted.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Palette.Ink,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 6.dp),
-                )
             }
         }
     }
+}
+
+/** Kesikli yuvarlak çerçeve ("Uygulama ekle" kutusu için). */
+private fun Modifier.dashedBorder(color: Color, radius: Dp): Modifier = drawBehind {
+    val stroke = 3.dp.toPx()
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(stroke / 2f, stroke / 2f),
+        size = Size(size.width - stroke, size.height - stroke),
+        cornerRadius = CornerRadius(radius.toPx()),
+        style = Stroke(width = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 12f))),
+    )
 }
 
 @Composable
 private fun LockButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(76.dp),
-        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth().height(74.dp),
+        shape = RoundedCornerShape(37.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Palette.Ink, contentColor = Color.White),
     ) {
-        Icon(Icons.Rounded.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(40.dp))
-        Spacer(Modifier.width(14.dp))
-        Text("Ekranı Kapat", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+        Icon(Icons.Rounded.NightsStay, contentDescription = null, tint = Palette.Moon, modifier = Modifier.size(34.dp))
+        Spacer(Modifier.width(12.dp))
+        Text("Ekranı Kapat", fontSize = 27.sp, fontWeight = FontWeight.Black)
     }
 }

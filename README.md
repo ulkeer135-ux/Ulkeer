@@ -2,6 +2,10 @@
 
 Kotlin + Jetpack Compose ile yazılmış, internet ya da hesap istemeyen bir launcher (ana ekran) uygulaması.
 
+## Görünüm
+
+"Sıcak ve yumuşak": krem zemin ve yumuşak şeftali/pembe yuvarlaklar, beyaz kutular (altında renkli şerit), renkli balonlar içinde simgeler, yuvarlak hatlı **Nunito** yazı tipi. Saatin üstünde saate göre selam ("İyi akşamlar, Anneciğim"; hitap Ayarlar'dan değişir). Hava durumu kartı havaya göre renk alır (gece lacivert ve yıldızlı, gündüz mavi, yağmurda gri-mavi). Nunito, SIL Open Font License ile uygulamaya gömülüdür (`licenses/OFL-Nunito.txt`).
+
 ## Ekranlar
 
 - **Ana ekran:** büyük saat ve tarih, yanında şarj yüzdesi (şarjdayken yeşil şimşek, %20 altında kırmızı "şarja tak" uyarısı).

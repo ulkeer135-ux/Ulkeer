@@ -27,6 +27,15 @@ class SettingsStore(context: Context) {
     var weatherLongitude by mutableStateOf(readDouble(KEY_LON, DEFAULT_LON))
         private set
 
+    /** Ana ekrandaki selamda kullanılan hitap ("İyi akşamlar, Anneciğim"). Boş olabilir. */
+    var greetingName by mutableStateOf(prefs.getString(KEY_GREETING, DEFAULT_GREETING) ?: DEFAULT_GREETING)
+        private set
+
+    fun updateGreetingName(name: String) {
+        greetingName = name.trim()
+        prefs.edit().putString(KEY_GREETING, greetingName).apply()
+    }
+
     /** Telefonun konumundan bulunan son semt adı (ör. "Kadıköy"). */
     var devicePlaceName: String?
         get() = prefs.getString(KEY_DEVICE_PLACE, null)
@@ -116,6 +125,8 @@ class SettingsStore(context: Context) {
 
     private companion object {
         const val DEFAULT_CITY = "İstanbul"
+        const val DEFAULT_GREETING = "Anneciğim"
+        const val KEY_GREETING = "greeting_name"
         const val DEFAULT_LAT = 41.0082
         const val DEFAULT_LON = 28.9784
 
