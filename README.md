@@ -5,10 +5,10 @@ Kotlin + Jetpack Compose ile yazılmış, internet ya da hesap istemeyen bir lau
 ## Ekranlar
 
 - **Ana ekran:** büyük saat ve tarih, yanında şarj yüzdesi (şarjdayken yeşil şimşek, %20 altında kırmızı "şarja tak" uyarısı).
-  - **Hava durumu** kutusu: anlık sıcaklık, durum, günün en yüksek/en düşük değerleri. 30 dakikada bir güncellenir, internet yoksa son değeri gösterir. Dokununca Google'ın hava durumu sayfası açılır.
+  - **Hava durumu** kutusu (büyük): anlık sıcaklık, durum, günün en yüksek/en düşük değerleri ve semt adı. Telefonun yaklaşık konumunu kullanır; izin yoksa ya da konum kapalıysa Ayarlar'daki şehri. 30 dakikada bir güncellenir, internet yoksa son değeri gösterir. Dokununca Google'ın hava durumu sayfası açılır.
   - Altı büyük kutu: Kişiler (telefonun rehberi), Telefon, WhatsApp, Mesajlar, Kamera, Fotoğraflar.
   - **Ekranı Kapat** düğmesi: güç tuşu gibi ekranı kilitler.
-- **Ayarlar (yakınlar için):** saate **3 saniye basılı tutunca** açılır. Ekranı kapatmayı etkinleştirme, hava durumu şehri, varsayılan ana ekran seçimi.
+- **Ayarlar (yakınlar için):** saate **3 saniye basılı tutunca** açılır. Ekranı kapatmayı etkinleştirme, hava durumu konumu (telefonun konumu ya da sabit şehir), varsayılan ana ekran seçimi.
 
 Geri tuşu ana ekranda bir şey yapmaz; Ana Sayfa tuşu her zaman ana ekrana döner. Sistem yazı boyutu yerleşimi bozmasın diye sabitlenmiştir.
 
@@ -28,7 +28,7 @@ Geri tuşu ana ekranda bir şey yapmaz; Ana Sayfa tuşu her zaman ana ekrana dö
 1. APK'yı telefona aktar ve aç. "Bilinmeyen kaynaklardan yükleme" izni istenirse ver.
 2. Uygulamayı bir kez aç, saate 3 sn basılı tut → **Ayarlar**:
    - **Ekranı Kapat düğmesi** → Erişilebilirlik ayarlarında "Annem – Ekranı kapat"ı aç. Seçenek gri ise önce *Uygulama bilgisi › ⋮ › Kısıtlanmış ayarlara izin ver* (Android 13+, Play Store dışından kurulan uygulamalar için).
-   - **Hava durumu şehri** (varsayılan İstanbul).
+   - İlk açılışta çıkan **konum izni** penceresinde "Uygulama kullanılırken" seç (hava durumu için). Vermezsen Ayarlar'daki şehir (varsayılan İstanbul) kullanılır.
    - **Varsayılan ana ekranı seç** → "Annem"i seç.
 
 ## Bilinen sınırlar
@@ -42,7 +42,8 @@ Geri tuşu ana ekranda bir şey yapmaz; Ana Sayfa tuşu her zaman ana ekrana dö
 ## Teknik
 
 - minSdk 26 (Android 8.0), targetSdk 35, AGP 8.7.3, Kotlin 2.0.21, Compose BOM 2024.12.01, Gradle 8.14.3.
-- Veri: hava durumu şehri ve son hava durumu (`SharedPreferences`).
+- Veri: hava durumu konumu ve son hava durumu (`SharedPreferences`).
+- Konum: yalnızca yaklaşık konum izni (`ACCESS_COARSE_LOCATION`), `LocationManager` ile; Google Play Hizmetleri gerekmez. Semt adı Android `Geocoder` ile bulunur.
 - Enerji: saat dakika başlarında güncellenir; saat, şarj ve hava durumu yalnızca ekran görünürken çalışır; arka plan servisi yok.
 - İmza: depodaki `app/debug.keystore` (sabit debug anahtarı, güncellemeler üzerine kurulsun diye).
-- Kod: `MainActivity.kt` (ekran geçişleri), `Actions.kt` (arama/uygulama açma), `SettingsStore.kt` (ayar), `Weather.kt` (hava durumu), `LockService.kt` (ekranı kapat), `ui/` (ekranlar ve tema).
+- Kod: `MainActivity.kt` (ekran geçişleri), `Actions.kt` (arama/uygulama açma), `SettingsStore.kt` (ayar), `Weather.kt` (hava durumu), `LockService.kt` (ekranı kapat), `DeviceLocation.kt` (konum), `ui/` (ekranlar ve tema).

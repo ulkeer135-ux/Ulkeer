@@ -1,9 +1,12 @@
 package com.annem.launcher.ui
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import com.annem.launcher.DeviceLocation
 import com.annem.launcher.LockService
 import com.annem.launcher.SettingsStore
 import com.annem.launcher.WeatherApi
@@ -57,6 +61,8 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
     // Ayarlardan geri dönünce (ON_RESUME) servis durumunu yeniden oku.
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val lockEnabled = remember(lifecycleState) { LockService.isEnabled(context) }
+    val locationGranted = remember(lifecycleState) { DeviceLocation.hasPermission(context) }
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     var cityDraft by remember { mutableStateOf(store.weatherCity) }
     var cityMessage by remember { mutableStateOf<String?>(null) }
@@ -94,12 +100,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                 OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
                     Text("Erişilebilirlik ayarlarını aç", fontSize = 18.sp)
                 }
-                OutlinedButton(onClick = {
-                    openSettings(
-                        context,
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
-                    )
-                }) {
+                OutlinedButton(onClick = { openAppInfo(context) }) {
                     Text("Uygulama bilgisi", fontSize = 18.sp)
                 }
             }
@@ -108,8 +109,34 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
         HorizontalDivider()
 
         // --- Hava durumu ---
-        SectionTitle("Hava durumu şehri")
-        Hint("Şu an: ${store.weatherCity}. Semt ya da şehir adı yazabilirsin (ör. Kadıköy, Ankara).")
+        SectionTitle("Hava durumu konumu")
+        if (store.useDeviceLocation) {
+            StatusRow("Telefonun konumu", locationGranted, onText = "Kullanılıyor", offText = "İzin yok")
+            Hint(
+                if (locationGranted) {
+                    "Hava durumu telefonun bulunduğu yere göre gösterilir" +
+                        (store.devicePlaceName?.let { " (şu an: $it)" } ?: "") +
+                        ". Telefonun Konum ayarı kapalıysa aşağıdaki şehir kullanılır."
+                } else {
+                    "Konum izni verilmedi; şimdilik ${store.weatherCity} gösteriliyor."
+                }
+            )
+            if (!locationGranted) {
+                OutlinedButton(onClick = { locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }) {
+                    Text("Konum iznini ver", fontSize = 18.sp)
+                }
+                Hint("İzin penceresi açılmıyorsa: Uygulama bilgisi › İzinler › Konum › \"Uygulama kullanılırken izin ver\".")
+                OutlinedButton(onClick = { openAppInfo(context) }) { Text("Uygulama bilgisi", fontSize = 18.sp) }
+            }
+        } else {
+            StatusRow("Sabit şehir", true, onText = store.weatherCity, offText = "")
+            OutlinedButton(onClick = {
+                store.setUseDeviceLocation(true)
+                if (!locationGranted) locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }) { Text("Telefonun konumunu kullan", fontSize = 18.sp) }
+        }
+
+        Hint("Ya da sabit bir şehir/semt yaz (ör. Kadıköy, Ankara). Kaydedince telefonun konumu yerine bu kullanılır.")
         OutlinedTextField(
             value = cityDraft,
             onValueChange = {
@@ -139,7 +166,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                     searching = false
                 }
             },
-        ) { Text(if (searching) "Aranıyor…" else "Şehri kaydet", fontSize = 18.sp) }
+        ) { Text(if (searching) "Aranıyor…" else "Sabit şehir olarak kaydet", fontSize = 18.sp) }
         cityMessage?.let { Hint(it) }
 
         HorizontalDivider()
@@ -153,6 +180,13 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
 
         Spacer(Modifier.height(24.dp))
     }
+}
+
+private fun openAppInfo(context: Context) {
+    openSettings(
+        context,
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+    )
 }
 
 private fun openSettings(context: Context, intent: Intent) {

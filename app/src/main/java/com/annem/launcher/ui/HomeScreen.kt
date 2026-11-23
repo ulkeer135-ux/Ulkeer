@@ -80,7 +80,8 @@ fun HomeScreen(store: SettingsStore, onOpenSettings: () -> Unit) {
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1f))
+            // Hava durumu kutusu diğer satırlardan %40 daha yüksek.
+            WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1.4f))
             TileRow {
                 Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
                     Actions.openContacts(context)
@@ -252,7 +253,7 @@ private fun Tile(
 private fun LockButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(84.dp),
+        modifier = Modifier.fillMaxWidth().height(76.dp),
         shape = RoundedCornerShape(24.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Palette.Ink, contentColor = Color.White),
     ) {

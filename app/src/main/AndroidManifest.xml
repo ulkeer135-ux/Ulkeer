@@ -3,6 +3,8 @@
 
     <!-- Hava durumu (Open-Meteo) için -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Hava durumu için yaklaşık konum (semt düzeyi; GPS kullanılmaz) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Android 11+ paket görünürlüğü -->
     <queries>
