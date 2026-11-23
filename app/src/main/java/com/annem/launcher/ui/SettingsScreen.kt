@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import com.annem.launcher.BadgeService
+import com.annem.launcher.Badges
 import com.annem.launcher.DeviceLocation
 import com.annem.launcher.LockService
 import com.annem.launcher.PhoneContacts
@@ -117,6 +118,16 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             OutlinedButton(onClick = { openSettings(context, BadgeService.settingsIntent(context)) }) {
                 Text("Bildirim erişimini aç", fontSize = 18.sp)
             }
+        }
+        if (badgeAccess) {
+            Hint(
+                if (BadgeService.connected) {
+                    "Şu an sayılan: WhatsApp ${Badges.whatsapp}, cevapsız arama ${Badges.missedCalls}."
+                } else {
+                    "Erişim açık ama telefon dinleyiciyi henüz başlatmadı. Ana ekrana dönüp tekrar bak; " +
+                        "değişmezse erişimi kapatıp yeniden aç."
+                }
+            )
         }
         StatusRow("Ana ekranda göster", store.badgesEnabled, onText = "Evet", offText = "Hayır")
         OutlinedButton(onClick = { store.updateBadgesEnabled(!store.badgesEnabled) }) {

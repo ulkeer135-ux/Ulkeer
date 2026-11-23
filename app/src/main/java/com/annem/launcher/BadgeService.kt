@@ -28,10 +28,12 @@ object Badges {
 class BadgeService : NotificationListenerService() {
 
     override fun onListenerConnected() {
+        connected = true
         recount()
     }
 
     override fun onListenerDisconnected() {
+        connected = false
         Badges.whatsapp = 0
         Badges.missedCalls = 0
     }
@@ -98,6 +100,24 @@ class BadgeService : NotificationListenerService() {
     }
 
     companion object {
+        /** Sistem dinleyiciye şu an bağlı mı (Ayarlar'daki durum satırı için). */
+        @Volatile
+        var connected = false
+            private set
+
+        /**
+         * Erişim açık ama sistem dinleyiciyi bağlamamışsa (bazı telefonlarda güncellemeden
+         * sonra olur) yeniden bağlanmasını ister.
+         */
+        fun ensureConnected(context: Context) {
+            if (connected || !isEnabled(context)) return
+            try {
+                NotificationListenerService.requestRebind(ComponentName(context, BadgeService::class.java))
+            } catch (e: Exception) {
+                // Desteklenmiyorsa sessizce geç.
+            }
+        }
+
         private const val WHATSAPP = "com.whatsapp"
         private const val WHATSAPP_BUSINESS = "com.whatsapp.w4b"
         private const val CATEGORY_MISSED_CALL = "missed_call" // Notification.CATEGORY_MISSED_CALL (API 30)
