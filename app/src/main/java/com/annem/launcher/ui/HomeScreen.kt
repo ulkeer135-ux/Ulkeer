@@ -45,7 +45,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -149,12 +151,8 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
             },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                time,
-                fontSize = 72.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Palette.Ink,
-                lineHeight = 76.sp,
+            ClockText(
+                time = time,
                 modifier = Modifier
                     .weight(1f)
                     .semantics { contentDescription = "Saat $time, $date" },
@@ -171,6 +169,34 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
+    }
+}
+
+private const val CLOCK_SP = 70f
+
+/**
+ * Saat her zaman tek satırda kalır: 70 sp sığmıyorsa (dar ekran, geniş yazı tipi)
+ * tam sığacak kadar küçülür; sığıyorsa 70 sp kalır.
+ */
+@Composable
+private fun ClockText(time: String, modifier: Modifier) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier = modifier) {
+        val available = constraints.maxWidth
+        val fontSize = remember(time, available) {
+            val style = TextStyle(fontSize = CLOCK_SP.sp, fontWeight = FontWeight.ExtraBold)
+            val needed = measurer.measure(time, style = style, softWrap = false, maxLines = 1).size.width
+            if (needed <= available || needed == 0) CLOCK_SP else CLOCK_SP * available / needed * 0.97f
+        }
+        Text(
+            time,
+            fontSize = fontSize.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Palette.Ink,
+            lineHeight = (fontSize + 4f).sp,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 

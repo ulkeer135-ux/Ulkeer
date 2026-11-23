@@ -2,10 +2,12 @@ package com.annem.launcher.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -121,9 +123,9 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                 imageVector = look?.icon ?: Icons.Rounded.CloudOff,
                 contentDescription = null,
                 tint = look?.tint ?: Palette.InkSoft,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(48.dp),
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 Text(
                     if (current != null) "${current.temperature}°" else "--°",
@@ -132,14 +134,18 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                     color = Palette.Ink,
                     lineHeight = 44.sp,
                 )
-                Text(
-                    description,
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Palette.InkSoft,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // "Gök gürültülü" gibi uzun durumlar kesilmesin: gerekirse yazı biraz küçülür.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val fitted = (maxWidth.value / (description.length * 0.6f)).coerceIn(15f, 21f)
+                    Text(
+                        description,
+                        fontSize = fitted.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Palette.InkSoft,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
@@ -151,7 +157,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (current != null) {
-                    Text("↑${current.max}°  ↓${current.min}°", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft)
+                    Text("↑${current.max}° ↓${current.min}°", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft)
                 }
             }
         }

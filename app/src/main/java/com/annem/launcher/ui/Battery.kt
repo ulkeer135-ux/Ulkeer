@@ -124,12 +124,12 @@ fun BatteryIndicator(state: BatteryState) {
         modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description },
     ) {
         if (state.charging) {
-            Icon(Icons.Rounded.Bolt, contentDescription = null, tint = color, modifier = Modifier.size(34.dp))
+            Icon(Icons.Rounded.Bolt, contentDescription = null, tint = color, modifier = Modifier.size(30.dp))
         } else {
             BatteryGlyph(state.percent, color)
             Spacer(Modifier.width(8.dp))
         }
-        Text("%${state.percent}", fontSize = 38.sp, fontWeight = FontWeight.ExtraBold, color = color)
+        Text("%${state.percent}", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = color)
     }
 }
 
@@ -138,13 +138,13 @@ private fun BatteryGlyph(percent: Int, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .width(42.dp)
-                .height(24.dp)
+                .width(38.dp)
+                .height(22.dp)
                 .border(2.5.dp, color, RoundedCornerShape(6.dp)),
         ) {
             Box(
                 modifier = Modifier
-                    .padding(4.dp)
+                    .padding(3.5.dp)
                     .fillMaxHeight()
                     .fillMaxWidth((percent / 100f).coerceIn(0.08f, 1f))
                     .background(color, RoundedCornerShape(2.dp)),
