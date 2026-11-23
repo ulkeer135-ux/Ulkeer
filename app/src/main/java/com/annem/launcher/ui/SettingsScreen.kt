@@ -131,7 +131,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
         } else {
             StatusRow("Sabit şehir", true, onText = store.weatherCity, offText = "")
             OutlinedButton(onClick = {
-                store.setUseDeviceLocation(true)
+                store.updateUseDeviceLocation(true)
                 if (!locationGranted) locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             }) { Text("Telefonun konumunu kullan", fontSize = 18.sp) }
         }

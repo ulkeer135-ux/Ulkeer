@@ -42,7 +42,7 @@ class SettingsStore(context: Context) {
         File(context.filesDir, "photos").deleteRecursively()
     }
 
-    fun setUseDeviceLocation(enabled: Boolean) {
+    fun updateUseDeviceLocation(enabled: Boolean) {
         useDeviceLocation = enabled
         prefs.edit().putBoolean(KEY_USE_LOC, enabled).apply()
     }
@@ -57,7 +57,7 @@ class SettingsStore(context: Context) {
             .putString(KEY_LAT, place.latitude.toString())
             .putString(KEY_LON, place.longitude.toString())
             .apply()
-        setUseDeviceLocation(false)
+        updateUseDeviceLocation(false)
     }
 
     /** [source] o anki konum kaynağı; başka kaynağın eski verisi gösterilmez. */
