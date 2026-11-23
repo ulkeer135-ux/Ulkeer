@@ -1,5 +1,7 @@
 package com.annem.launcher.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -76,6 +78,10 @@ private val TURKISH: Locale = Locale.forLanguageTag("tr-TR")
 fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
+    // Cihaz yöneticisi onay ekranı: sonuç gelince kurulduysa haber ver.
+    val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        ScreenLock.reportActivation(context)
+    }
 
     Column(
         modifier = Modifier
@@ -132,31 +138,37 @@ fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings:
             containerColor = Color.White,
             title = { Text("Ekranı Kapat kurulmadı", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold) },
             text = {
-                Text(
-                    if (problem == LockResult.SERVICE_NOT_CONNECTED) {
-                        "Ayar açık görünüyor ama telefon servisi durdurmuş. Ayarlar'da \"Cihaz yöneticisi\" " +
-                            "yöntemini açabilir ya da erişilebilirlik ayarını kapatıp yeniden açabilirsin."
-                    } else {
-                        "Bu düğmenin çalışması için bir kez kurulum gerekiyor. Ayarlar'da iki kolay yol var."
-                    },
-                    fontSize = 20.sp,
-                    color = Palette.Ink,
-                    lineHeight = 26.sp,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        if (problem == LockResult.SERVICE_NOT_CONNECTED) {
+                            "Erişilebilirlik ayarı açık ama telefon servisi durdurmuş. " +
+                                "\"Şimdi kur\" ile tek onaylık yolu açabilirsin."
+                        } else {
+                            "Bir kez kurulum gerekiyor. \"Şimdi kur\"a dokun, açılan ekranda \"Etkinleştir\"e bas."
+                        },
+                        fontSize = 20.sp,
+                        color = Palette.Ink,
+                        lineHeight = 26.sp,
+                    )
+                    TextButton(onClick = {
+                        lockProblem = null
+                        onOpenSettings()
+                    }) { Text("Diğer yol (Ayarlar)", fontSize = 18.sp) }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         lockProblem = null
-                        onOpenSettings()
+                        ScreenLock.launchAdminActivation(context, adminLauncher)
                     },
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.height(56.dp),
-                ) { Text("Kurulumu aç", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                ) { Text("Şimdi kur", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { lockProblem = null }) {
-                    Text("Kapat", fontSize = 20.sp, color = Palette.Ink)
+                    Text("Vazgeç", fontSize = 20.sp, color = Palette.Ink)
                 }
             },
         )

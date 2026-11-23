@@ -67,6 +67,10 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val lockEnabled = remember(lifecycleState) { LockService.isEnabled(context) }
     var adminTick by remember { mutableIntStateOf(0) }
+    val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        ScreenLock.reportActivation(context)
+        adminTick++
+    }
     val adminActive = remember(lifecycleState, adminTick) { ScreenLock.isAdminActive(context) }
     var permissionTick by remember { mutableIntStateOf(0) }
     val contactsGranted = remember(lifecycleState, permissionTick) { PhoneContacts.hasPermission(context) }
@@ -118,7 +122,9 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
                     "1) Aşağıdaki düğmeyle Erişilebilirlik ayarlarını aç.\n" +
                         "2) \"İndirilen uygulamalar\" ya da \"Yüklü hizmetler\" altında \"Annem – Ekranı kapat\"ı bul ve aç.\n" +
                         "Seçenek gri ve açılmıyorsa: \"Uygulama bilgisi\"ni aç, sağ üstteki ⋮ menüsünden " +
-                        "\"Kısıtlanmış ayarlara izin ver\"i seç, sonra 1. adımı tekrarla."
+                        "\"Kısıtlanmış ayarlara izin ver\"i seç, sonra 1. adımı tekrarla. (Bu menü, gri seçeneğe bir kez " +
+                        "dokunduktan sonra görünür.)\n" +
+                        "OPPO/realme: Ayarlar › Ek ayarlar › Erişilebilirlik › İndirilen uygulamalar."
                 )
                 OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
                     Text("Erişilebilirlik ayarlarını aç", fontSize = 18.sp)
@@ -141,7 +147,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
         )
         StatusRow("Cihaz yöneticisi", adminActive, onText = "Açık", offText = "Kapalı")
         if (!adminActive) {
-            OutlinedButton(onClick = { openSettings(context, ScreenLock.adminActivationIntent(context)) }) {
+            OutlinedButton(onClick = { ScreenLock.launchAdminActivation(context, adminLauncher) }) {
                 Text("Cihaz yöneticisini aç", fontSize = 18.sp)
             }
         } else {

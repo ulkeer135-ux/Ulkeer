@@ -5,6 +5,8 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 
 /** Cihaz yöneticisi alıcısı: yalnızca "ekranı kilitle" yetkisi ister (force-lock). */
 class AdminReceiver : DeviceAdminReceiver()
@@ -34,7 +36,32 @@ object ScreenLock {
 
     fun isAdminActive(context: Context): Boolean = policyManager(context).isAdminActive(adminComponent(context))
 
-    fun adminActivationIntent(context: Context): Intent =
+    /**
+     * Onay ekranını açar. Not: Android bu ekranı FLAG_ACTIVITY_NEW_TASK ile açılırsa
+     * sessizce kapatır; bu yüzden etkinlikten, sonuç bekleyerek başlatılır.
+     */
+    fun launchAdminActivation(context: Context, launcher: ActivityResultLauncher<Intent>) {
+        if (isAdminActive(context)) {
+            reportActivation(context)
+            return
+        }
+        try {
+            launcher.launch(adminActivationIntent(context))
+        } catch (e: Exception) {
+            Toast.makeText(context, "Onay ekranı açılamadı. Ayarlar'daki diğer yolu dene.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun reportActivation(context: Context) {
+        val message = if (isAdminActive(context)) {
+            "Hazır! Artık \"Ekranı Kapat\" düğmesi ekranı kapatır."
+        } else {
+            "Kurulum tamamlanmadı. Onay ekranında \"Etkinleştir\"e basmak gerekiyor."
+        }
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun adminActivationIntent(context: Context): Intent =
         Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
             .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent(context))
             .putExtra(
