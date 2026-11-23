@@ -18,16 +18,18 @@ import java.util.Locale
  * sürümlerle uyumlu kalsın diye değişmedi (camera/gallery eski atamaları korur).
  */
 object Slots {
-    const val MESSAGES = "messages" // orta sağ
-    const val CAMERA = "camera"     // alt sol
-    const val GALLERY = "gallery"   // alt sağ
-    val ALL = listOf(MESSAGES, CAMERA, GALLERY)
+    const val MESSAGES = "messages" // 1. kutu
+    const val CAMERA = "camera"     // 2. kutu
+    const val GALLERY = "gallery"   // 3. kutu
+    const val SLOT4 = "slot4"       // 4–6: yalnızca 9 kutulu düzende
+    const val SLOT5 = "slot5"
+    const val SLOT6 = "slot6"
+    val ALL = listOf(MESSAGES, CAMERA, GALLERY, SLOT4, SLOT5, SLOT6)
 
-    fun title(id: String): String = when (id) {
-        MESSAGES -> "Orta sağdaki kutu"
-        CAMERA -> "Alt soldaki kutu"
-        else -> "Alt sağdaki kutu"
-    }
+    /** 6 kutulu düzende 3, 9 kutulu düzende 6 seçilebilir kutu var. */
+    fun visible(nineTiles: Boolean): List<String> = if (nineTiles) ALL else ALL.take(3)
+
+    fun title(id: String): String = "${ALL.indexOf(id) + 1}. kutu"
 }
 
 /** Bir kutuya atanmış uygulama ve kutuda görünecek yazı. */

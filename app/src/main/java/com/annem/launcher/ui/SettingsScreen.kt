@@ -193,10 +193,28 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
 
         HorizontalDivider()
 
+        // --- Düzen ---
+        SectionTitle("Ana ekran düzeni")
+        Hint("9 kutu: daha çok uygulama. 6 kutu: daha büyük kutular ve yazılar (görmesi zor olanlar için).")
+        StatusRow("Şu an", true, onText = "${store.tileCount} kutu", offText = "")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                enabled = store.tileCount != 9,
+                onClick = { store.updateTileCount(9) },
+            ) { Text("9 kutu", fontSize = 18.sp) }
+            OutlinedButton(
+                enabled = store.tileCount != 6,
+                onClick = { store.updateTileCount(6) },
+            ) { Text("6 büyük kutu", fontSize = 18.sp) }
+        }
+
+        HorizontalDivider()
+
         // --- Kutulara uygulama ata ---
         SectionTitle("Kutulara uygulama ata")
         Hint("Ana ekrandaki üç kutuya telefondaki istediğin uygulamayı koyabilirsin. Boş kutuya ana ekranda dokunarak da ekleyebilirsin. Kutuda uygulamanın simgesi ve aşağıda yazdığın ad görünür.")
-        Slots.ALL.forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
+        Hint("Kutular soldan sağa, yukarıdan aşağıya numaralanır (Kişiler, Telefon ve WhatsApp'tan sonra).")
+        Slots.visible(store.tileCount == 9).forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
 
         HorizontalDivider()
 

@@ -38,6 +38,9 @@ object Palette {
     val SmsBg = Color(0xFFFFF0C7); val SmsLine = Color(0xFFF3DC9A); val SmsIcon = Color(0xFF8A5A00)
     val CamBg = Color(0xFFEFE2FB); val CamLine = Color(0xFFE2CCF5); val CamIcon = Color(0xFF6E3AA6)
     val PicBg = Color(0xFFFFE3D6); val PicLine = Color(0xFFF7CDB8); val PicIcon = Color(0xFFB4481C)
+    val Slot4Bg = Color(0xFFFDE2E0); val Slot4Line = Color(0xFFF5C6C2); val Slot4Icon = Color(0xFFB3261E)
+    val Slot5Bg = Color(0xFFFCE1EE); val Slot5Line = Color(0xFFF3C3DA); val Slot5Icon = Color(0xFFA3266A)
+    val Slot6Bg = Color(0xFFDDF0F5); val Slot6Line = Color(0xFFB9DDE8); val Slot6Icon = Color(0xFF1F6E86)
     val EmptyLine = Color(0xFFD9C3AC); val EmptyBg = Color(0xFFFBEBDA); val EmptyIcon = Color(0xFF8A6E55)
 
     // Hava durumu kartı: zemin havaya göre (yazı beyaz), alt gölge bir ton koyusu.

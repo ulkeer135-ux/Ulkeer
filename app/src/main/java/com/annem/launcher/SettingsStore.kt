@@ -36,6 +36,15 @@ class SettingsStore(context: Context) {
         prefs.edit().putString(KEY_GREETING, greetingName).apply()
     }
 
+    /** Ana ekrandaki kutu sayısı: 9 (3×3) ya da 6 (2×3, daha büyük kutular). */
+    var tileCount by mutableStateOf(if (prefs.getInt(KEY_TILES, 9) == 6) 6 else 9)
+        private set
+
+    fun updateTileCount(count: Int) {
+        tileCount = if (count == 6) 6 else 9
+        prefs.edit().putInt(KEY_TILES, tileCount).apply()
+    }
+
     /** WhatsApp ve Telefon kutularında kırmızı sayılar gösterilsin mi? */
     var badgesEnabled by mutableStateOf(prefs.getBoolean(KEY_BADGES, true))
         private set
@@ -137,6 +146,7 @@ class SettingsStore(context: Context) {
         const val DEFAULT_GREETING = "Anneciğim"
         const val KEY_GREETING = "greeting_name"
         const val KEY_BADGES = "badges_enabled"
+        const val KEY_TILES = "tile_count"
         const val DEFAULT_LAT = 41.0082
         const val DEFAULT_LON = 28.9784
 

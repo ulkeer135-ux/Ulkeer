@@ -134,34 +134,53 @@ fun HomeScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Hava durumu kutusu diğer satırlardan %40 daha yüksek.
-            WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1.4f))
+            val nine = store.tileCount == 9
+            val cols = if (nine) 3 else 2
+            // 6 kutuda hava durumu kartı diğer satırlardan %40 yüksek; 9 kutuda bir satır boyunda.
+            WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(if (nine) 1.05f else 1.4f))
             val showBadges = store.badgesEnabled
-            TileRow {
-                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
+
+            // Kutular soldan sağa, yukarıdan aşağıya: 3 sabit kutu + kullanıcının seçtiği kutular.
+            val tiles = mutableListOf<@Composable (Modifier) -> Unit>()
+            tiles += { m ->
+                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, m, compact = nine) {
                     onOpenContacts()
                 }
+            }
+            tiles += { m ->
                 Tile(
-                    "Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it,
+                    "Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, m,
                     badge = if (showBadges) Badges.missedCalls else 0,
                     badgeWord = "cevapsız arama",
+                    compact = nine,
                 ) {
                     Actions.openDialer(context)
                 }
             }
-            TileRow {
+            tiles += { m ->
                 Tile(
-                    "WhatsApp", Icons.Rounded.Forum, Palette.WaBg, Palette.WaLine, Palette.WaIcon, it,
+                    "WhatsApp", Icons.Rounded.Forum, Palette.WaBg, Palette.WaLine, Palette.WaIcon, m,
                     badge = if (showBadges) Badges.whatsapp else 0,
                     badgeWord = "okunmamış mesaj",
+                    compact = nine,
                 ) {
                     Actions.openWhatsApp(context)
                 }
-                SlotTile(store, Slots.MESSAGES, Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon, it, onPickApp)
             }
-            TileRow {
-                SlotTile(store, Slots.CAMERA, Palette.CamBg, Palette.CamLine, Palette.CamIcon, it, onPickApp)
-                SlotTile(store, Slots.GALLERY, Palette.PicBg, Palette.PicLine, Palette.PicIcon, it, onPickApp)
+            val slotColors = listOf(
+                Triple(Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon),
+                Triple(Palette.CamBg, Palette.CamLine, Palette.CamIcon),
+                Triple(Palette.PicBg, Palette.PicLine, Palette.PicIcon),
+                Triple(Palette.Slot4Bg, Palette.Slot4Line, Palette.Slot4Icon),
+                Triple(Palette.Slot5Bg, Palette.Slot5Line, Palette.Slot5Icon),
+                Triple(Palette.Slot6Bg, Palette.Slot6Line, Palette.Slot6Icon),
+            )
+            Slots.visible(nine).forEachIndexed { index, id ->
+                val (bg, line, icon) = slotColors[index]
+                tiles += { m -> SlotTile(store, id, bg, line, icon, m, onPickApp, compact = nine) }
+            }
+            tiles.chunked(cols).forEach { row ->
+                TileRow { m -> row.forEach { tile -> tile(m) } }
             }
         }
 
@@ -328,6 +347,7 @@ private fun SlotTile(
     iconTint: Color,
     modifier: Modifier,
     onPickApp: (String) -> Unit,
+    compact: Boolean = false,
 ) {
     val context = LocalContext.current
     val slot = store.slot(slotId)
@@ -347,11 +367,16 @@ private fun SlotTile(
             iconTint = iconTint,
             modifier = modifier,
             appIcon = appIcon,
+            compact = compact,
         ) {
             if (!Actions.openApp(context, slot.packageName)) onPickApp(slotId)
         }
     } else {
-        Tile("Uygulama ekle", Icons.Rounded.Add, Palette.EmptyBg, Palette.EmptyLine, Palette.EmptyIcon, modifier, empty = true) {
+        Tile(
+            if (compact) "Ekle" else "Uygulama ekle",
+            Icons.Rounded.Add, Palette.EmptyBg, Palette.EmptyLine, Palette.EmptyIcon, modifier,
+            empty = true, compact = compact,
+        ) {
             onPickApp(slotId)
         }
     }
@@ -373,6 +398,7 @@ private fun Tile(
     empty: Boolean = false,
     badge: Int = 0,
     badgeWord: String = "yeni",
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -403,8 +429,8 @@ private fun Tile(
             // Alt: beyaz alan + yazı (her zaman tam sığar)
             FitText(
                 text = label,
-                maxSp = 25f,
-                minSp = 15f,
+                maxSp = if (compact) 19f else 25f,
+                minSp = 14f,
                 fontWeight = FontWeight.Black,
                 color = if (empty) Palette.EmptyIcon else Palette.Ink,
                 contentAlignment = Alignment.Center,
@@ -419,18 +445,19 @@ private fun Tile(
         CountBadge(
             count = badge,
             description = "$badge $badgeWord",
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+            size = if (compact) 34.dp else 44.dp,
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp),
         )
     }
     }
 }
 
 @Composable
-private fun CountBadge(count: Int, description: String, modifier: Modifier) {
+private fun CountBadge(count: Int, description: String, size: Dp, modifier: Modifier) {
     Box(
         modifier = modifier
             .semantics { contentDescription = description }
-            .size(44.dp)
+            .size(size)
             .clip(CircleShape)
             .background(Color.White)
             .padding(3.dp)
@@ -440,7 +467,7 @@ private fun CountBadge(count: Int, description: String, modifier: Modifier) {
     ) {
         Text(
             if (count > 9) "9+" else count.toString(),
-            fontSize = if (count > 9) 17.sp else 22.sp,
+            fontSize = (if (count > 9) 0.39f else 0.5f).let { (size.value * it).sp },
             fontWeight = FontWeight.Black,
             color = Color.White,
             lineHeight = 24.sp,
