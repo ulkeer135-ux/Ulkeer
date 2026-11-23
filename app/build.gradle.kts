@@ -12,8 +12,8 @@ android {
         applicationId = "com.annem.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "2.3"
+        versionCode = 15
+        versionName = "2.4"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.
@@ -28,8 +28,13 @@ android {
     }
 
     buildTypes {
+        // Telefona kurulan sürüm: R8 ile küçültülmüş ve optimize edilmiş, açılışı çok daha hızlı.
+        // Aynı (debug) anahtarla imzalanır; böylece önceki sürümlerin üzerine kurulabilir.
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

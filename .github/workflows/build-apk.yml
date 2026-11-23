@@ -24,8 +24,8 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-          cp app/build/outputs/apk/debug/app-debug.apk Annem.apk
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+          cp app/build/outputs/apk/release/app-release.apk Annem.apk
 
       # Derleme hatalarını giriş yapmadan da görülebilen uyarı notlarına (annotation) yazar.
       - name: Derleme hatalarını göster
