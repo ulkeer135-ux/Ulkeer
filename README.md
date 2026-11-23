@@ -4,7 +4,7 @@ Kotlin + Jetpack Compose ile yazılmış, internet ya da hesap istemeyen bir lau
 
 ## Ekranlar
 
-- **Ana ekran:** büyük saat ve tarih; altı büyük kutu (Rehber, Telefon, WhatsApp, Mesajlar, Kamera, Fotoğraflar); kırmızı **Acil Yardım** düğmesi (önce "aransın mı?" diye onay ister).
+- **Ana ekran:** büyük saat ve tarih, yanında şarj yüzdesi (şarjdayken yeşil şimşek, %20 altında kırmızı "şarja tak" uyarısı); altı büyük kutu (Rehber, Telefon, WhatsApp, Mesajlar, Kamera, Fotoğraflar); kırmızı **Acil Yardım** düğmesi (önce "aransın mı?" diye onay ister).
 - **Rehber:** telefonun kendi rehber uygulamasını açar.
 - **Ayarlar (yakınlar için):** saate **3 saniye basılı tutunca** açılır. Acil durum numarası, arama izni, varsayılan ana ekran seçimi.
 

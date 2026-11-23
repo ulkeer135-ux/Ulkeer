@@ -153,6 +153,7 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
     }
     val time = now.format(DateTimeFormatter.ofPattern("HH:mm", TURKISH))
     val date = now.format(DateTimeFormatter.ofPattern("d MMMM EEEE", TURKISH))
+    val battery = rememberBatteryState()
 
     Column(
         modifier = Modifier
@@ -169,10 +170,30 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
                     if (endedEarly == null) onSecretHold()
                 }
             }
-            .semantics { contentDescription = "Saat $time, $date" },
     ) {
-        Text(time, fontSize = 72.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Ink, lineHeight = 76.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                time,
+                fontSize = 72.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Palette.Ink,
+                lineHeight = 76.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { contentDescription = "Saat $time, $date" },
+            )
+            battery?.let { BatteryIndicator(it) }
+        }
         Text(date, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft)
+        if (battery?.low == true) {
+            Text(
+                "Şarj azaldı, telefonu şarja tak",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Palette.Red,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
 
