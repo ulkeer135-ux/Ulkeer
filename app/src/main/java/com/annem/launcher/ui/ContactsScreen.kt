@@ -1,11 +1,14 @@
 package com.annem.launcher.ui
 
 import android.Manifest
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -26,12 +29,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -43,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,13 +70,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import com.annem.launcher.Actions
+import com.annem.launcher.ContactPhotos
 import com.annem.launcher.PhoneContact
 import com.annem.launcher.PhoneContacts
 import com.annem.launcher.SettingsStore
+import kotlinx.coroutines.launch
 import java.text.Collator
 import java.util.Locale
 
 private val TR: Locale = Locale.forLanguageTag("tr-TR")
+private val StarGold = Color(0xFFD99A00)
 
 private val avatarColors = listOf(
     Palette.ContactsBg to Palette.ContactsIcon,
@@ -80,12 +91,14 @@ private val avatarColors = listOf(
 
 /**
  * "Kimi arayalım?": önce favoriler (büyük fotoğraflı kartlar, ör. "Oğlum", "Gelinim"),
- * sonra rehberdeki diğer kişiler. Bir kişiye 2 saniye basılı tutmak görünen adını ve
- * favori durumunu değiştirir (telefonun rehberi değişmez).
+ * sonra diğer kişiler. Başlığa 3 saniye basılı tutunca düzenleme modu açılır: her kişinin
+ * yanında yıldız (favoriye ekle/çıkar) çıkar, kişiye dokununca görünen ad ve fotoğraf
+ * değiştirilir. Annen için yıldızlar normalde görünmez. Telefonun rehberi değişmez.
  */
 @Composable
 fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val granted = remember(lifecycleState) { PhoneContacts.hasPermission(context) }
 
@@ -100,11 +113,28 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
     LaunchedEffect(granted) {
         if (granted) contacts = PhoneContacts.load(context)
     }
+    var editMode by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PhoneContact?>(null) }
 
+    // Fotoğraf seçici: seçilen fotoğraf düzenlenen kişiye kaydedilir.
+    var photoTarget by remember { mutableStateOf<Long?>(null) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val id = photoTarget
+        photoTarget = null
+        if (uri != null && id != null) {
+            scope.launch {
+                if (ContactPhotos.save(context, id, uri)) {
+                    store.setPhotoVersion(id, System.currentTimeMillis())
+                } else {
+                    Toast.makeText(context, "Fotoğraf okunamadı, başka bir fotoğraf dene", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     val labels = store.contactLabels
-    val annemFavorites = store.contactFavorites
     fun displayName(c: PhoneContact) = labels[c.id] ?: c.name
+    fun isFavorite(c: PhoneContact) = store.isFavorite(c.id, c.starred)
 
     Column(
         modifier = Modifier
@@ -118,8 +148,38 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
             fontSize = 34.sp,
             fontWeight = FontWeight.Black,
             color = Palette.Ink,
-            modifier = Modifier.padding(horizontal = 4.dp),
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .holdFor(3_000L, "title") { editMode = true },
         )
+
+        if (editMode) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Palette.SmsBg,
+                border = BorderStroke(2.dp, Palette.SmsLine),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Düzenleme: yıldız = favori, kişiye dokun = ad ve fotoğraf",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Palette.Ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(
+                        onClick = { editMode = false },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Palette.Ink, contentColor = Color.White),
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Tamam", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
 
         val list = contacts
         when {
@@ -143,39 +203,56 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
             else -> {
                 val collator = remember { Collator.getInstance(TR) }
                 val favorites = list
-                    .filter { it.starred || it.id in annemFavorites }
+                    .filter { isFavorite(it) }
                     .sortedWith { a, b -> collator.compare(displayName(a), displayName(b)) }
-                val others = list.filterNot { it.starred || it.id in annemFavorites }
+                val others = list.filterNot { isFavorite(it) }
 
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 12.dp),
                 ) {
-                    if (favorites.isEmpty()) {
+                    if (favorites.isEmpty() && !editMode) {
                         item(key = "hint") {
                             Text(
-                                "Bir kişiyi öne almak için adına 2 saniye basılı tut.",
+                                "Favori eklemek için başlığa 3 saniye basılı tut.",
                                 fontSize = 16.sp,
                                 color = Palette.InkSoft,
                                 modifier = Modifier.padding(horizontal = 4.dp),
                             )
                         }
-                    } else {
+                    }
+                    if (favorites.isNotEmpty()) {
                         item(key = "h-fav") { SectionHeader("Favoriler") }
-                        // Favoriler ikişerli büyük kartlar.
-                        items(favorites.chunked(2), key = { row -> "f" + row.joinToString("-") { it.id.toString() } }) { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                row.forEach { c ->
-                                    FavoriteCard(
-                                        contact = c,
-                                        title = displayName(c),
-                                        realName = if (labels.containsKey(c.id)) c.name else null,
-                                        onEdit = { editing = c },
-                                        modifier = Modifier.weight(1f),
-                                    )
+                        if (favorites.size == 1) {
+                            // Tek favori: tam genişlikte, yatay kart.
+                            val c = favorites.first()
+                            item(key = "f${c.id}") {
+                                WideFavoriteCard(
+                                    store = store,
+                                    contact = c,
+                                    title = displayName(c),
+                                    realName = if (labels.containsKey(c.id)) c.name else null,
+                                    editMode = editMode,
+                                    onEdit = { editing = c },
+                                )
+                            }
+                        } else {
+                            items(favorites.chunked(2), key = { row -> "f" + row.joinToString("-") { it.id.toString() } }) { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    row.forEach { c ->
+                                        FavoriteCard(
+                                            store = store,
+                                            contact = c,
+                                            title = displayName(c),
+                                            realName = if (labels.containsKey(c.id)) c.name else null,
+                                            editMode = editMode,
+                                            onEdit = { editing = c },
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
                                 }
-                                if (row.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
                     }
@@ -183,9 +260,11 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
                         item(key = "h-all") { SectionHeader(if (favorites.isEmpty()) "Kişiler" else "Diğer kişiler") }
                         items(others, key = { "o${it.id}" }) { c ->
                             ContactRow(
+                                store = store,
                                 contact = c,
                                 title = displayName(c),
                                 realName = if (labels.containsKey(c.id)) c.name else null,
+                                editMode = editMode,
                                 onEdit = { editing = c },
                             )
                         }
@@ -199,21 +278,29 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
         EditContactDialog(
             contact = c,
             currentLabel = labels[c.id].orEmpty(),
-            isAnnemFavorite = c.id in annemFavorites,
-            onSave = { label, favorite ->
-                store.updateContact(c.id, label, favorite)
+            hasOwnPhoto = store.contactPhotos.containsKey(c.id),
+            onSave = { label ->
+                store.updateLabel(c.id, label)
                 editing = null
+            },
+            onPickPhoto = {
+                photoTarget = c.id
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onRemovePhoto = {
+                ContactPhotos.delete(context, c.id)
+                store.setPhotoVersion(c.id, null)
             },
             onDismiss = { editing = null },
         )
     }
 }
 
-/** 2 saniye basılı tutunca [onHold]; kısa dokunuş ve kaydırma etkilenmez. */
-private fun Modifier.holdToEdit(key: Any, onHold: () -> Unit): Modifier = pointerInput(key) {
+/** Belirli süre basılı tutunca [onHold]; kısa dokunuş ve kaydırma etkilenmez. */
+private fun Modifier.holdFor(millis: Long, key: Any, onHold: () -> Unit): Modifier = pointerInput(key) {
     awaitEachGesture {
         awaitFirstDown(requireUnconsumed = false)
-        val endedEarly = withTimeoutOrNull(2_000L) {
+        val endedEarly = withTimeoutOrNull(millis) {
             waitForUpOrCancellation()
             true
         }
@@ -222,67 +309,144 @@ private fun Modifier.holdToEdit(key: Any, onHold: () -> Unit): Modifier = pointe
 }
 
 @Composable
+private fun StarToggle(store: SettingsStore, contact: PhoneContact, modifier: Modifier = Modifier) {
+    val favorite = store.isFavorite(contact.id, contact.starred)
+    IconButton(
+        onClick = { store.toggleFavorite(contact.id, contact.starred) },
+        modifier = modifier
+            .size(52.dp)
+            .semantics { contentDescription = if (favorite) "Favorilerden çıkar" else "Favorilere ekle" },
+    ) {
+        Icon(
+            if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+            contentDescription = null,
+            tint = if (favorite) StarGold else Palette.InkSoft,
+            modifier = Modifier.size(38.dp),
+        )
+    }
+}
+
+@Composable
+private fun CallButtonWide(contact: PhoneContact, modifier: Modifier) {
+    val context = LocalContext.current
+    Button(
+        onClick = { Actions.call(context, contact.number) },
+        modifier = modifier.height(60.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+    ) {
+        Icon(Icons.Rounded.Call, contentDescription = null, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Ara", fontSize = 24.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
 private fun FavoriteCard(
+    store: SettingsStore,
     contact: PhoneContact,
     title: String,
     realName: String?,
+    editMode: Boolean,
     onEdit: () -> Unit,
     modifier: Modifier,
 ) {
-    val context = LocalContext.current
     Surface(
         shape = RoundedCornerShape(26.dp),
         color = Color.White,
         border = BorderStroke(2.dp, Palette.ContactsLine),
         modifier = modifier,
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Box {
             Column(
-                modifier = Modifier.fillMaxWidth().holdToEdit(contact.id, onEdit),
+                modifier = Modifier.padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ContactAvatar(contact, size = 96.dp, preferFull = true)
-                Spacer(Modifier.height(8.dp))
-                FitText(
-                    text = title,
-                    maxSp = 26f,
-                    minSp = 16f,
-                    fontWeight = FontWeight.Black,
-                    color = Palette.Ink,
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (realName != null) {
-                    Text(
-                        realName,
-                        fontSize = 15.sp,
-                        color = Palette.InkSoft,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (editMode) Modifier.clickable(onClick = onEdit) else Modifier),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    ContactAvatar(store, contact, size = 96.dp, preferFull = true)
+                    Spacer(Modifier.height(8.dp))
+                    FitText(
+                        text = title,
+                        maxSp = 26f,
+                        minSp = 16f,
+                        fontWeight = FontWeight.Black,
+                        color = Palette.Ink,
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    if (realName != null) {
+                        Text(realName, fontSize = 15.sp, color = Palette.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                CallButtonWide(contact, Modifier.fillMaxWidth())
             }
-            Button(
-                onClick = { Actions.call(context, contact.number) },
-                modifier = Modifier.fillMaxWidth().height(60.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-            ) {
-                Icon(Icons.Rounded.Call, contentDescription = null, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Ara", fontSize = 24.sp, fontWeight = FontWeight.Black)
-            }
+            if (editMode) StarToggle(store, contact, Modifier.align(Alignment.TopEnd))
         }
     }
 }
 
 @Composable
-private fun ContactRow(contact: PhoneContact, title: String, realName: String?, onEdit: () -> Unit) {
+private fun WideFavoriteCard(
+    store: SettingsStore,
+    contact: PhoneContact,
+    title: String,
+    realName: String?,
+    editMode: Boolean,
+    onEdit: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(26.dp),
+        color = Color.White,
+        border = BorderStroke(2.dp, Palette.ContactsLine),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (editMode) Modifier.clickable(onClick = onEdit) else Modifier),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ContactAvatar(store, contact, size = 104.dp, preferFull = true)
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        FitText(
+                            text = title,
+                            maxSp = 30f,
+                            minSp = 18f,
+                            fontWeight = FontWeight.Black,
+                            color = Palette.Ink,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (realName != null) {
+                            Text(realName, fontSize = 16.sp, color = Palette.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+                if (editMode) StarToggle(store, contact)
+            }
+            CallButtonWide(contact, Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun ContactRow(
+    store: SettingsStore,
+    contact: PhoneContact,
+    title: String,
+    realName: String?,
+    editMode: Boolean,
+    onEdit: () -> Unit,
+) {
     val context = LocalContext.current
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -292,10 +456,12 @@ private fun ContactRow(contact: PhoneContact, title: String, realName: String?, 
     ) {
         Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                modifier = Modifier.weight(1f).holdToEdit(contact.id, onEdit),
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (editMode) Modifier.clickable(onClick = onEdit) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ContactAvatar(contact, size = 56.dp, preferFull = false)
+                ContactAvatar(store, contact, size = 56.dp, preferFull = false)
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
@@ -312,15 +478,19 @@ private fun ContactRow(contact: PhoneContact, title: String, realName: String?, 
                     }
                 }
             }
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = { Actions.call(context, contact.number) },
-                modifier = Modifier.size(64.dp).semantics { contentDescription = "$title ara" },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Icon(Icons.Rounded.Call, contentDescription = null, modifier = Modifier.size(32.dp))
+            if (editMode) {
+                StarToggle(store, contact)
+            } else {
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = { Actions.call(context, contact.number) },
+                    modifier = Modifier.size(64.dp).semantics { contentDescription = "$title ara" },
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Icon(Icons.Rounded.Call, contentDescription = null, modifier = Modifier.size(32.dp))
+                }
             }
         }
     }
@@ -330,12 +500,13 @@ private fun ContactRow(contact: PhoneContact, title: String, realName: String?, 
 private fun EditContactDialog(
     contact: PhoneContact,
     currentLabel: String,
-    isAnnemFavorite: Boolean,
-    onSave: (label: String, favorite: Boolean) -> Unit,
+    hasOwnPhoto: Boolean,
+    onSave: (label: String) -> Unit,
+    onPickPhoto: () -> Unit,
+    onRemovePhoto: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var label by remember(contact.id) { mutableStateOf(currentLabel) }
-    var favorite by remember(contact.id) { mutableStateOf(isAnnemFavorite || contact.starred) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
@@ -349,26 +520,25 @@ private fun EditContactDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = favorite,
-                        onCheckedChange = { favorite = it },
-                        enabled = !contact.starred,
-                    )
-                    Text("Favorilerde göster", fontSize = 18.sp)
+                OutlinedButton(onClick = onPickPhoto, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Rounded.AddAPhoto, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (hasOwnPhoto) "Fotoğrafı değiştir" else "Galeriden fotoğraf seç", fontSize = 17.sp)
                 }
-                if (contact.starred) {
-                    Text(
-                        "Telefonun rehberinde yıldızlı olduğu için favorilerde. Çıkarmak için rehberden yıldızı kaldır.",
-                        fontSize = 14.sp,
-                        color = Palette.InkSoft,
-                    )
+                if (hasOwnPhoto) {
+                    TextButton(onClick = onRemovePhoto) { Text("Seçilen fotoğrafı kaldır", fontSize = 16.sp) }
                 }
-                Text("Telefonun rehberindeki ad değişmez.", fontSize = 14.sp, color = Palette.InkSoft)
+                Text(
+                    "WhatsApp fotoğrafı için: WhatsApp'ta kişinin profil fotoğrafını açıp telefona kaydet, sonra buradan seç. " +
+                        "Telefonun rehberi değişmez.",
+                    fontSize = 14.sp,
+                    color = Palette.InkSoft,
+                    lineHeight = 19.sp,
+                )
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(label, favorite && !contact.starred) }) { Text("Kaydet", fontSize = 18.sp) }
+            Button(onClick = { onSave(label) }) { Text("Kaydet", fontSize = 18.sp) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Vazgeç", fontSize = 18.sp) }
@@ -392,12 +562,15 @@ private fun SectionHeader(text: String) {
     )
 }
 
+/** Fotoğraf önceliği: Annem'de seçilen fotoğraf → rehberdeki fotoğraf → renkli baş harf. */
 @Composable
-private fun ContactAvatar(contact: PhoneContact, size: Dp, preferFull: Boolean) {
+private fun ContactAvatar(store: SettingsStore, contact: PhoneContact, size: Dp, preferFull: Boolean) {
     val context = LocalContext.current
+    val ownVersion = store.contactPhotos[contact.id]
     val uri = if (preferFull) contact.fullPhotoUri ?: contact.photoUri else contact.photoUri
-    val photo by produceState<ImageBitmap?>(initialValue = null, uri) {
-        value = uri?.let { PhoneContacts.loadPhoto(context, it) }
+    val photo by produceState<ImageBitmap?>(initialValue = null, ownVersion, uri) {
+        value = (if (ownVersion != null) ContactPhotos.load(context, contact.id) else null)
+            ?: uri?.let { PhoneContacts.loadPhoto(context, it) }
     }
     val current = photo
     if (current != null) {

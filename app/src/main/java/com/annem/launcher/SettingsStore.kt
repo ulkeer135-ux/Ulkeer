@@ -44,19 +44,63 @@ class SettingsStore(context: Context) {
     var contactLabels by mutableStateOf(readLabels())
         private set
 
-    fun updateContact(id: Long, label: String, favorite: Boolean) {
-        contactFavorites = if (favorite) contactFavorites + id else contactFavorites - id
+    /** Rehberde yıldızlı olduğu halde Annem'de favorilerden çıkarılan kişiler. */
+    var contactHidden by mutableStateOf(readIds(KEY_HIDDEN))
+        private set
+
+    /** Annem içinde fotoğraf seçilmiş kişiler: kişi → sürüm (fotoğraf değişince yenilenir). */
+    var contactPhotos by mutableStateOf(readPhotoVersions())
+        private set
+
+    fun isFavorite(id: Long, starredInPhone: Boolean): Boolean =
+        (starredInPhone || id in contactFavorites) && id !in contactHidden
+
+    /** Yıldıza dokununca: favoriyse çıkarır, değilse ekler. */
+    fun toggleFavorite(id: Long, starredInPhone: Boolean) {
+        if (isFavorite(id, starredInPhone)) {
+            contactFavorites = contactFavorites - id
+            if (starredInPhone) contactHidden = contactHidden + id
+        } else {
+            contactHidden = contactHidden - id
+            if (!starredInPhone) contactFavorites = contactFavorites + id
+        }
+        saveContacts()
+    }
+
+    fun updateLabel(id: Long, label: String) {
         contactLabels = if (label.isBlank()) contactLabels - id else contactLabels + (id to label.trim())
+        saveContacts()
+    }
+
+    fun setPhotoVersion(id: Long, version: Long?) {
+        contactPhotos = if (version == null) contactPhotos - id else contactPhotos + (id to version)
+        saveContacts()
+    }
+
+    private fun saveContacts() {
         val labelsJson = org.json.JSONObject()
         contactLabels.forEach { (k, v) -> labelsJson.put(k.toString(), v) }
+        val photosJson = org.json.JSONObject()
+        contactPhotos.forEach { (k, v) -> photosJson.put(k.toString(), v) }
         prefs.edit()
             .putString(KEY_FAVORITES, contactFavorites.joinToString(","))
+            .putString(KEY_HIDDEN, contactHidden.joinToString(","))
             .putString(KEY_LABELS, labelsJson.toString())
+            .putString(KEY_PHOTOS, photosJson.toString())
             .apply()
     }
 
-    private fun readFavorites(): Set<Long> =
-        prefs.getString(KEY_FAVORITES, "").orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+    private fun readFavorites(): Set<Long> = readIds(KEY_FAVORITES)
+
+    private fun readIds(key: String): Set<Long> =
+        prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+
+    private fun readPhotoVersions(): Map<Long, Long> = try {
+        val json = org.json.JSONObject(prefs.getString(KEY_PHOTOS, "{}") ?: "{}")
+        json.keys().asSequence().mapNotNull { k -> k.toLongOrNull()?.let { it to json.getLong(k) } }.toMap()
+    } catch (e: Exception) {
+        emptyMap()
+    }
 
     private fun readLabels(): Map<Long, String> = try {
         val json = org.json.JSONObject(prefs.getString(KEY_LABELS, "{}") ?: "{}")
@@ -180,6 +224,8 @@ class SettingsStore(context: Context) {
         const val KEY_TILES = "tile_count"
         const val KEY_FAVORITES = "contact_favorites"
         const val KEY_LABELS = "contact_labels"
+        const val KEY_HIDDEN = "contact_hidden"
+        const val KEY_PHOTOS = "contact_photos"
         const val DEFAULT_LAT = 41.0082
         const val DEFAULT_LON = 28.9784
 
