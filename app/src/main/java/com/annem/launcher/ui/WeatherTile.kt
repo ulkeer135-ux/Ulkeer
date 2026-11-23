@@ -163,7 +163,8 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 // Kart kısa kalırsa (küçük ekran) konum satırı gizlenir; hiçbir yazı kesilmez.
                 val showPlace = maxHeight >= 116.dp
-                val tempSp = if (maxHeight >= 140.dp) 54f else 44f
+                val bigCard = maxHeight >= 140.dp
+                val tempSp = if (bigCard) 54f else 44f
                 if (look.stars) {
                     // Gece: birkaç küçük yıldız (süs).
                     Star(Modifier.align(Alignment.TopStart).offset(x = 130.dp, y = 18.dp), 5.dp)
@@ -179,7 +180,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                         imageVector = look.icon,
                         contentDescription = null,
                         tint = look.iconTint,
-                        modifier = Modifier.size(if (maxHeight >= 140.dp) 70.dp else 56.dp),
+                        modifier = Modifier.size(if (bigCard) 70.dp else 56.dp),
                     )
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
