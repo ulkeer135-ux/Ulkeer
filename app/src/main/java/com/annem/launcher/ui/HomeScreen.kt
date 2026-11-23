@@ -2,6 +2,7 @@ package com.annem.launcher.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
@@ -124,7 +125,7 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ClockHeader(greetingName = store.greetingName, onSecretHold = onOpenSettings)
+        ClockHeader(onSecretHold = onOpenSettings)
 
         Column(
             modifier = Modifier
@@ -209,7 +210,7 @@ fun HomeScreen(
  * girmeyeceği, yakınların bildiği gizli giriş.
  */
 @Composable
-private fun ClockHeader(greetingName: String, onSecretHold: () -> Unit) {
+private fun ClockHeader(onSecretHold: () -> Unit) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var now by remember { mutableStateOf(LocalDateTime.now()) }
 
@@ -226,13 +227,6 @@ private fun ClockHeader(greetingName: String, onSecretHold: () -> Unit) {
     val time = now.format(DateTimeFormatter.ofPattern("HH:mm", TURKISH))
     val date = now.format(DateTimeFormatter.ofPattern("d MMMM EEEE", TURKISH))
     val battery = rememberBatteryState()
-    val greeting = when (now.hour) {
-        in 5..10 -> "Günaydın"
-        in 11..16 -> "İyi günler"
-        in 17..21 -> "İyi akşamlar"
-        else -> "İyi geceler"
-    }
-    val greetingText = if (greetingName.isBlank()) greeting else "$greeting, $greetingName"
 
     Column(
         modifier = Modifier
@@ -250,27 +244,6 @@ private fun ClockHeader(greetingName: String, onSecretHold: () -> Unit) {
                 }
             },
     ) {
-        // Saate göre selam: "İyi akşamlar, Anneciğim"
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Rounded.Favorite,
-                contentDescription = null,
-                tint = Palette.Heart,
-                modifier = Modifier.size(26.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            BoxWithConstraints(modifier = Modifier.weight(1f)) {
-                val fitted = (maxWidth.value / (greetingText.length * 0.55f)).coerceIn(16f, 22f)
-                Text(
-                    greetingText,
-                    fontSize = fitted.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Palette.Greeting,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             ClockText(
                 time = time,
@@ -375,8 +348,8 @@ private fun SlotTile(
 }
 
 /**
- * Beyaz, yuvarlak köşeli kutu; altında renkli bir "gölge" şeridi (basılabilir görünür),
- * ortada renkli balon içinde simge ve büyük yazı. Boş kutu: kesikli çerçeve.
+ * İki tonlu kutu: üst kısım pastel renkli (simge), alt kısım beyaz (yazı).
+ * Boş kutu: açık bej üst, kesikli çerçeve, "Uygulama ekle".
  */
 @Composable
 private fun Tile(
@@ -391,54 +364,41 @@ private fun Tile(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
-    Box(modifier = modifier) {
-        if (!empty) {
-            Box(
+    Surface(
+        onClick = onClick,
+        modifier = modifier.then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
+        shape = shape,
+        color = Color.White,
+        border = if (empty) null else BorderStroke(2.dp, line),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Üst: renkli alan + simge
+            BoxWithConstraints(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 6.dp)
-                    .clip(shape)
-                    .background(line),
-            )
-        }
-        Surface(
-            onClick = onClick,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 6.dp)
-                .then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
-            shape = shape,
-            color = if (empty) Color.Transparent else Color.White,
-        ) {
-            BoxWithConstraints(contentAlignment = Alignment.Center) {
-                // Uzun etiketler dar telefonlarda tek satıra sığsın.
-                val fitted = ((maxWidth.value - 16f) / (label.length * 0.58f)).coerceIn(19f, 26f)
-                // Kısa ekranlarda balon küçülür, yazı küçülmez.
-                val bubble = if (maxHeight.value < 112f) 50.dp else 62.dp
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (appIcon != null) {
-                        Image(bitmap = appIcon, contentDescription = null, modifier = Modifier.size(bubble))
-                    } else {
-                        Box(
-                            modifier = Modifier.size(bubble).clip(CircleShape).background(background),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(bubble * 0.56f))
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        label,
-                        fontSize = fitted.sp,
-                        fontWeight = FontWeight.Black,
-                        color = if (empty) Palette.EmptyIcon else Palette.Ink,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                    )
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(background),
+                contentAlignment = Alignment.Center,
+            ) {
+                val iconSize = (maxHeight * 0.62f).coerceIn(28.dp, 56.dp)
+                if (appIcon != null) {
+                    Image(bitmap = appIcon, contentDescription = null, modifier = Modifier.size(iconSize))
+                } else {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
                 }
             }
+            // Alt: beyaz alan + yazı (her zaman tam sığar)
+            FitText(
+                text = label,
+                maxSp = 25f,
+                minSp = 15f,
+                fontWeight = FontWeight.Black,
+                color = if (empty) Palette.EmptyIcon else Palette.Ink,
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
         }
     }
 }

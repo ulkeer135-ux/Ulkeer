@@ -4,7 +4,7 @@ Kotlin + Jetpack Compose ile yazılmış, internet ya da hesap istemeyen bir lau
 
 ## Görünüm
 
-"Sıcak ve yumuşak": krem zemin ve yumuşak şeftali/pembe yuvarlaklar, beyaz kutular (altında renkli şerit), renkli balonlar içinde simgeler, yuvarlak hatlı **Nunito** yazı tipi. Saatin üstünde saate göre selam ("İyi akşamlar, Anneciğim"; hitap Ayarlar'dan değişir). Hava durumu kartı havaya göre renk alır (gece lacivert ve yıldızlı, gündüz mavi, yağmurda gri-mavi). Nunito, SIL Open Font License ile uygulamaya gömülüdür (`licenses/OFL-Nunito.txt`).
+"Sıcak ve yumuşak": krem zemin ve yumuşak şeftali/pembe yuvarlaklar; iki tonlu kutular (üstü pastel renkli, simge; altı beyaz, yazı); yuvarlak hatlı **Nunito** yazı tipi. Kutu yazıları hiçbir ekranda kesilmez, sığmazsa küçülür. Hava durumu kartı havaya göre renk alır (gece lacivert ve yıldızlı, gündüz mavi, yağmurda gri-mavi). Nunito, SIL Open Font License ile uygulamaya gömülüdür (`licenses/OFL-Nunito.txt`).
 
 ## Ekranlar
 

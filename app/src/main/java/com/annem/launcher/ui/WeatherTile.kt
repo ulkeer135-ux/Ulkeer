@@ -152,24 +152,18 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
     }
     val shape = RoundedCornerShape(30.dp)
 
-    // Kart, havaya göre renk alır (gece lacivert, gündüz mavi, yağmurda gri-mavi…);
-    // altında bir ton koyu "gölge" şeridi.
-    Box(modifier = modifier.semantics(mergeDescendants = true) { contentDescription = spoken }) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 6.dp)
-                .clip(shape)
-                .background(look.shadow),
-        )
-        Surface(
-            onClick = { Actions.openGoogleWeather(context, placeName) },
-            modifier = Modifier.fillMaxSize().padding(bottom = 6.dp),
-            shape = shape,
-            color = look.sky,
-            contentColor = Color.White,
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+    // Kart, havaya göre renk alır (gece lacivert, gündüz mavi, yağmurda gri-mavi…).
+    Surface(
+        onClick = { Actions.openGoogleWeather(context, placeName) },
+        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = spoken },
+        shape = shape,
+        color = look.sky,
+        contentColor = Color.White,
+    ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                // Kart kısa kalırsa (küçük ekran) konum satırı gizlenir; hiçbir yazı kesilmez.
+                val showPlace = maxHeight >= 132.dp
+                val tempSp = if (maxHeight >= 132.dp) 54f else 44f
                 if (look.stars) {
                     // Gece: birkaç küçük yıldız (süs).
                     Star(Modifier.align(Alignment.TopStart).offset(x = 130.dp, y = 18.dp), 5.dp)
@@ -185,7 +179,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                         imageVector = look.icon,
                         contentDescription = null,
                         tint = look.iconTint,
-                        modifier = Modifier.size(70.dp),
+                        modifier = Modifier.size(if (showPlace) 70.dp else 56.dp),
                     )
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
@@ -193,10 +187,10 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 if (current != null) "${current.temperature}°" else "--°",
-                                fontSize = 54.sp,
+                                fontSize = tempSp.sp,
                                 fontWeight = FontWeight.Black,
                                 color = Color.White,
-                                lineHeight = 56.sp,
+                                lineHeight = (tempSp + 2f).sp,
                             )
                             if (current != null) {
                                 Spacer(Modifier.width(12.dp))
@@ -207,19 +201,16 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                             }
                         }
                         // 2. satır: durum, gerekirse küçülerek tam sığar
-                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                            val fitted = (maxWidth.value / (description.length * 0.58f)).coerceIn(16f, 23f)
-                            Text(
-                                description,
-                                fontSize = fitted.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        // 3. satır: konum
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        FitText(
+                            text = description,
+                            maxSp = 23f,
+                            minSp = 15f,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        // 3. satır: konum (yer varsa)
+                        if (showPlace) Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Rounded.LocationOn,
                                 contentDescription = null,
@@ -239,7 +230,6 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                     }
                 }
             }
-        }
     }
 }
 
