@@ -354,6 +354,24 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             Text("Varsayılan ana ekranı seç", fontSize = 18.sp)
         }
 
+        Spacer(Modifier.height(12.dp))
+        Hint(
+            "Ana ekran tuşunda telefon bir an duvar kağıdını gösteriyor (telefonun kendi geçiş " +
+                "animasyonu). Duvar kağıdını Annem'in zeminiyle aynı yaparsan bu an fark edilmez. " +
+                "Kilit ekranı değişmez."
+        )
+        var wallpaperResult by remember { mutableStateOf<Boolean?>(null) }
+        OutlinedButton(onClick = {
+            scope.launch { wallpaperResult = com.annem.launcher.AnnemWallpaper.apply(context) }
+        }) {
+            Text("Duvar kağıdını Annem'e uydur", fontSize = 18.sp)
+        }
+        when (wallpaperResult) {
+            true -> Text("Duvar kağıdı ayarlandı ✓", fontSize = 18.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+            false -> Text("Duvar kağıdı ayarlanamadı.", fontSize = 18.sp, color = Color(0xFFC62828))
+            null -> {}
+        }
+
         Spacer(Modifier.height(24.dp))
     }
 }
