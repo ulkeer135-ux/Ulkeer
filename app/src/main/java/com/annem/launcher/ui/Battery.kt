@@ -37,34 +37,65 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlin.math.roundToInt
 
 data class BatteryState(val percent: Int, val charging: Boolean) {
     val low: Boolean get() = percent <= 20 && !charging
 }
 
-/** Pil durumunu sistemin ACTION_BATTERY_CHANGED yayınından canlı izler; izin gerekmez. */
+/**
+ * Pil durumunu sistemin ACTION_BATTERY_CHANGED yayınından canlı izler; izin gerekmez.
+ * Enerji: yalnızca ekran görünürken (ON_START…ON_STOP) dinler.
+ */
 @Composable
 fun rememberBatteryState(): BatteryState? {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var state by remember { mutableStateOf<BatteryState?>(null) }
 
-    DisposableEffect(context) {
+    DisposableEffect(context, lifecycleOwner) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 parseBattery(intent)?.let { state = it }
             }
         }
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val sticky = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
-        // Yayın "yapışkan" olduğu için kayıt anında son durum hemen gelir.
-        sticky?.let { intent -> parseBattery(intent)?.let { state = it } }
+        var registered = false
 
-        onDispose { context.unregisterReceiver(receiver) }
+        fun register() {
+            if (registered) return
+            val sticky = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+            registered = true
+            // Yayın "yapışkan" olduğu için kayıt anında son durum hemen gelir.
+            sticky?.let { intent -> parseBattery(intent)?.let { state = it } }
+        }
+
+        fun unregister() {
+            if (!registered) return
+            context.unregisterReceiver(receiver)
+            registered = false
+        }
+
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> register()
+                Lifecycle.Event.ON_STOP -> unregister()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            unregister()
+        }
     }
     return state
 }

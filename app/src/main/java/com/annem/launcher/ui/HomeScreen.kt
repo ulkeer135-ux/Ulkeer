@@ -20,17 +20,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Contacts
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Sms
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,7 +48,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.annem.launcher.Actions
+import com.annem.launcher.SettingsStore
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -59,18 +61,14 @@ import java.util.Locale
 private val TURKISH: Locale = Locale.forLanguageTag("tr-TR")
 
 @Composable
-fun HomeScreen(
-    emergencyNumber: String,
-    onOpenSettings: () -> Unit,
-) {
+fun HomeScreen(store: SettingsStore, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
-    var askEmergency by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         ClockHeader(onSecretHold = onOpenSettings)
 
@@ -78,10 +76,11 @@ fun HomeScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1f))
             TileRow {
-                Tile("Rehber", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
+                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
                     Actions.openContacts(context)
                 }
                 Tile("Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it) {
@@ -106,49 +105,27 @@ fun HomeScreen(
             }
         }
 
-        EmergencyButton(number = emergencyNumber, onClick = { askEmergency = true })
-    }
-
-    if (askEmergency) {
-        AlertDialog(
-            onDismissRequest = { askEmergency = false },
-            containerColor = Color.White,
-            title = { Text("Acil Yardım", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold) },
-            text = { Text("$emergencyNumber aransın mı?", fontSize = 26.sp, color = Palette.Ink) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        askEmergency = false
-                        Actions.call(context, emergencyNumber)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Palette.Red),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.height(64.dp),
-                ) { Text("Evet, ara", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold) }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { askEmergency = false },
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(2.dp, Palette.Ink),
-                    modifier = Modifier.height(64.dp),
-                ) { Text("Vazgeç", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Palette.Ink) }
-            },
-        )
+        LockButton(onClick = { Actions.lockScreen(context) })
     }
 }
 
 /**
- * Saat ve tarih. Saate 3 saniye basılı tutmak ayarları açar: annenin yanlışlıkla
+ * Saat, tarih ve şarj. Saate 3 saniye basılı tutmak ayarları açar: annenin yanlışlıkla
  * girmeyeceği, yakınların bildiği gizli giriş.
  */
 @Composable
 private fun ClockHeader(onSecretHold: () -> Unit) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     var now by remember { mutableStateOf(LocalDateTime.now()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            now = LocalDateTime.now()
-            delay(1_000)
+
+    // Enerji: yalnızca ekran görünürken ve dakika başlarında güncellenir.
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                now = LocalDateTime.now()
+                val untilNextMinute = 60_000L - (System.currentTimeMillis() % 60_000L)
+                delay(untilNextMinute + 50L)
+            }
         }
     }
     val time = now.format(DateTimeFormatter.ofPattern("HH:mm", TURKISH))
@@ -169,7 +146,7 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
                     }
                     if (endedEarly == null) onSecretHold()
                 }
-            }
+            },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -201,7 +178,7 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
 private fun ColumnScope.TileRow(content: @Composable (Modifier) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().weight(1f),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         content(Modifier.weight(1f).fillMaxHeight())
     }
@@ -227,9 +204,11 @@ private fun Tile(
         BoxWithConstraints(contentAlignment = Alignment.Center) {
             // Uzun etiketler ("Fotoğraflar") dar telefonlarda tek satıra sığsın.
             val fitted = ((maxWidth.value - 16f) / (label.length * 0.62f)).coerceIn(20f, 28f)
+            // Kısa ekranlarda simge küçülür, yazı küçülmez.
+            val iconSize = if (maxHeight.value < 110f) 40.dp else 52.dp
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(56.dp))
-                Spacer(Modifier.height(8.dp))
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     label,
                     fontSize = fitted.sp,
@@ -244,18 +223,15 @@ private fun Tile(
 }
 
 @Composable
-private fun EmergencyButton(number: String, onClick: () -> Unit) {
+private fun LockButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(92.dp),
+        modifier = Modifier.fillMaxWidth().height(84.dp),
         shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Palette.Red, contentColor = Color.White),
+        colors = ButtonDefaults.buttonColors(containerColor = Palette.Ink, contentColor = Color.White),
     ) {
-        Icon(Icons.Rounded.Warning, contentDescription = null, modifier = Modifier.size(40.dp))
+        Icon(Icons.Rounded.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(40.dp))
         Spacer(Modifier.width(14.dp))
-        Column {
-            Text("Acil Yardım", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 32.sp)
-            Text(if (number == "112") "112'yi ara" else "Ara: $number", fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 22.sp)
-        }
+        Text("Ekranı Kapat", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
     }
 }

@@ -74,7 +74,7 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
     ) {
         when (screen) {
             Screen.Home -> HomeScreen(
-                emergencyNumber = store.emergencyNumber,
+                store = store,
                 onOpenSettings = { screen = Screen.Settings },
             )
             Screen.Settings -> SettingsScreen(store = store, onBack = { screen = Screen.Home })

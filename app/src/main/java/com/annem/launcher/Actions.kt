@@ -1,14 +1,13 @@
 package com.annem.launcher
 
-import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.widget.Toast
+import java.net.URLEncoder
 
 /** Ana ekrandaki her düğmenin başlattığı işlem. Hepsi hata durumunda sade bir mesaj gösterir. */
 object Actions {
@@ -61,18 +60,20 @@ object Actions {
         if (!ok) toast(context, "Fotoğraflar açılamadı")
     }
 
-    /**
-     * Arama izni verildiyse numarayı doğrudan arar, verilmediyse numara yazılı halde
-     * telefon uygulamasını açar. Android, 112 gibi acil numaraları güvenlik gereği her
-     * zaman telefon uygulamasında açar; orada yeşil düğmeye basmak gerekir.
-     */
-    fun call(context: Context, number: String) {
-        val uri = Uri.fromParts("tel", number, null)
-        val canCall = context.checkSelfPermission(Manifest.permission.CALL_PHONE) ==
-            PackageManager.PERMISSION_GRANTED
-        val started = (canCall && start(context, Intent(Intent.ACTION_CALL, uri))) ||
-            start(context, Intent(Intent.ACTION_DIAL, uri))
-        if (!started) toast(context, "Arama başlatılamadı")
+    /** Ekranı kapatır (güç tuşu gibi). Servis açık değilse yakına ne yapacağını söyler. */
+    fun lockScreen(context: Context) {
+        if (!LockService.isSupported) {
+            toast(context, "Bu telefonun Android sürümü ekranı kapatmayı desteklemiyor")
+        } else if (!LockService.lock()) {
+            toast(context, "Ekranı kapatma henüz açılmadı. Bir yakının Ayarlar'dan açmalı.")
+        }
+    }
+
+    /** Google'ın hava durumu sonucunu açar (Google uygulaması ya da tarayıcı). */
+    fun openGoogleWeather(context: Context, city: String) {
+        val query = URLEncoder.encode("$city hava durumu", "UTF-8")
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=$query"))
+        if (!start(context, intent)) toast(context, "Hava durumu sayfası açılamadı")
     }
 
     private fun start(context: Context, intent: Intent): Boolean = try {

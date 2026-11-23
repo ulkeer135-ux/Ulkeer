@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Annem</string>
+    <string name="lock_service_label">Annem – Ekranı kapat</string>
+    <string name="lock_service_description">Annem ana ekranındaki büyük \"Ekranı Kapat\" düğmesinin telefonu kilitlemesini sağlar (güç tuşuna basmak gibi). Ekrandaki içerikleri okumaz.</string>
 </resources>

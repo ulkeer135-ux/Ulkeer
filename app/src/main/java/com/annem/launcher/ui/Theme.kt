@@ -25,6 +25,15 @@ object Palette {
     val SmsBg = Color(0xFFFFF0C7); val SmsLine = Color(0xFFE3C66E); val SmsIcon = Color(0xFF7A5300)
     val CamBg = Color(0xFFF2E2F5); val CamLine = Color(0xFFCDA6D4); val CamIcon = Color(0xFF6B2F78)
     val PicBg = Color(0xFFFCE4D8); val PicLine = Color(0xFFE3A989); val PicIcon = Color(0xFF8A3A12)
+
+    // Hava durumu kutusu: beyaz zemin, simge rengi havaya göre.
+    val WeatherLine = Color(0xFFBFD3E3)
+    val Sun = Color(0xFFB86E00)
+    val Night = Color(0xFF34407A)
+    val Cloudy = Color(0xFF4F5D6B)
+    val Rain = Color(0xFF1F4E9C)
+    val Snow = Color(0xFF2E6F96)
+    val Storm = Color(0xFF6B2F78)
 }
 
 /**

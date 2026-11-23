@@ -1,12 +1,9 @@
 package com.annem.launcher.ui
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.net.Uri
 import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -34,30 +30,37 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import com.annem.launcher.LockService
 import com.annem.launcher.SettingsStore
+import com.annem.launcher.WeatherApi
+import kotlinx.coroutines.launch
 
 /** Yakınlar için ayarlar: saate 3 sn basılı tutunca açılır. */
 @Composable
 fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
     val context = LocalContext.current
-    var permissionTick by remember { mutableIntStateOf(0) }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { permissionTick++ }
+    val scope = rememberCoroutineScope()
 
-    var emergencyDraft by remember { mutableStateOf(store.emergencyNumber) }
+    // Ayarlardan geri dönünce (ON_RESUME) servis durumunu yeniden oku.
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val lockEnabled = remember(lifecycleState) { LockService.isEnabled(context) }
+
+    var cityDraft by remember { mutableStateOf(store.weatherCity) }
+    var cityMessage by remember { mutableStateOf<String?>(null) }
+    var searching by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -75,60 +78,76 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
             color = Palette.InkSoft,
         )
 
-        SectionTitle("Acil durum numarası")
-        Text(
-            "Kırmızı düğme bu numarayı arar. 112 yerine bir yakının numarasını da yazabilirsin.",
-            fontSize = 16.sp,
-            color = Palette.InkSoft,
-        )
-        OutlinedTextField(
-            value = emergencyDraft,
-            onValueChange = { emergencyDraft = it },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedButton(
-            onClick = {
-                store.updateEmergencyNumber(emergencyDraft)
-                emergencyDraft = store.emergencyNumber
-            },
-            enabled = emergencyDraft.trim() != store.emergencyNumber,
-        ) { Text("Kaydet", fontSize = 18.sp) }
-
-        HorizontalDivider()
-        SectionTitle("Arama izni")
-        Text(
-            "Verilirse acil düğmesi (112 dışındaki numaralarda) tek dokunuşla arar.",
-            fontSize = 16.sp,
-            color = Palette.InkSoft,
-        )
-        // permissionTick okunarak izin verildikten sonra durum yazısı yenilenir.
-        val granted = permissionTick >= 0 &&
-            context.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Doğrudan arama", fontSize = 17.sp, modifier = Modifier.weight(1f))
-            Text(
-                if (granted) "Verildi" else "Verilmedi",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (granted) Palette.Green else Palette.Red,
-            )
-        }
-        if (!granted) {
-            OutlinedButton(onClick = { permissionLauncher.launch(Manifest.permission.CALL_PHONE) }) {
-                Text("İzni ver", fontSize = 18.sp)
+        // --- Ekranı kapat ---
+        SectionTitle("Ekranı Kapat düğmesi")
+        if (!LockService.isSupported) {
+            Hint("Bu telefonun Android sürümü (9'dan eski) ekranı kapatmayı desteklemiyor.")
+        } else {
+            StatusRow("Durum", lockEnabled, onText = "Açık", offText = "Kapalı")
+            if (!lockEnabled) {
+                Hint(
+                    "1) Aşağıdaki düğmeyle Erişilebilirlik ayarlarını aç.\n" +
+                        "2) Listede \"Annem – Ekranı kapat\"ı bul ve aç.\n" +
+                        "Seçenek gri ve açılmıyorsa: önce \"Uygulama bilgisi\"ni aç, sağ üstteki ⋮ menüsünden " +
+                        "\"Kısıtlanmış ayarlara izin ver\"i seç, sonra 1. adımı tekrarla."
+                )
+                OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
+                    Text("Erişilebilirlik ayarlarını aç", fontSize = 18.sp)
+                }
+                OutlinedButton(onClick = {
+                    openSettings(
+                        context,
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+                    )
+                }) {
+                    Text("Uygulama bilgisi", fontSize = 18.sp)
+                }
             }
         }
 
         HorizontalDivider()
-        SectionTitle("Ana ekran")
-        Text(
-            "Bu uygulamayı varsayılan ana ekran yapınca Ana Sayfa tuşu hep buraya döner.",
-            fontSize = 16.sp,
-            color = Palette.InkSoft,
+
+        // --- Hava durumu ---
+        SectionTitle("Hava durumu şehri")
+        Hint("Şu an: ${store.weatherCity}. Semt ya da şehir adı yazabilirsin (ör. Kadıköy, Ankara).")
+        OutlinedTextField(
+            value = cityDraft,
+            onValueChange = {
+                cityDraft = it
+                cityMessage = null
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedButton(onClick = { openHomeSettings(context) }) {
+        OutlinedButton(
+            enabled = !searching && cityDraft.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    searching = true
+                    cityMessage = try {
+                        val place = WeatherApi.geocode(cityDraft.trim())
+                        if (place == null) {
+                            "\"${cityDraft.trim()}\" bulunamadı"
+                        } else {
+                            store.setPlace(place)
+                            cityDraft = place.name
+                            "Kaydedildi: ${place.label}"
+                        }
+                    } catch (e: Exception) {
+                        "İnternete bağlanılamadı, tekrar dene"
+                    }
+                    searching = false
+                }
+            },
+        ) { Text(if (searching) "Aranıyor…" else "Şehri kaydet", fontSize = 18.sp) }
+        cityMessage?.let { Hint(it) }
+
+        HorizontalDivider()
+
+        // --- Ana ekran ---
+        SectionTitle("Ana ekran")
+        Hint("Bu uygulamayı varsayılan ana ekran yapınca Ana Sayfa tuşu hep buraya döner.")
+        OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_HOME_SETTINGS)) }) {
             Text("Varsayılan ana ekranı seç", fontSize = 18.sp)
         }
 
@@ -136,9 +155,9 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
     }
 }
 
-private fun openHomeSettings(context: Context) {
+private fun openSettings(context: Context, intent: Intent) {
     try {
-        context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
         context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
@@ -147,6 +166,24 @@ private fun openHomeSettings(context: Context) {
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Ink)
+}
+
+@Composable
+private fun Hint(text: String) {
+    Text(text, fontSize = 16.sp, color = Palette.InkSoft, lineHeight = 22.sp)
+}
+
+@Composable
+private fun StatusRow(label: String, ok: Boolean, onText: String, offText: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 17.sp, modifier = Modifier.weight(1f))
+        Text(
+            if (ok) onText else offText,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (ok) Palette.Green else Palette.Red,
+        )
+    }
 }
 
 @Composable
