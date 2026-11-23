@@ -210,6 +210,31 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
 
         HorizontalDivider()
 
+        // --- Ses tuşu ve kontrol paneli kilidi ---
+        SectionTitle("Ses tuşu ve kontrol paneli kilidi")
+        Hint(
+            "Ses tuşlarına ve kontrol paneline yanlışlıkla basılmasını engeller. Aramada ve telefon çalarken " +
+                "ses tuşları her zaman çalışır. Eski \"Ses Tuşu Kilidi\" uygulamasını artık silebilirsin."
+        )
+        if (!lockEnabled) {
+            Hint("Bunun için yukarıdaki \"Yol 1 – Erişilebilirlik\" servisinin açık olması gerekiyor.")
+        }
+        StatusRow("Ses tuşu kilidi", store.volumeLock, onText = "Açık", offText = "Kapalı")
+        OutlinedButton(onClick = { store.updateVolumeLock(!store.volumeLock) }) {
+            Text(if (store.volumeLock) "Ses tuşlarını serbest bırak" else "Ses tuşlarını kilitle", fontSize = 18.sp)
+        }
+        if (LockService.isPanelLockSupported) {
+            StatusRow("Kontrol paneli kilidi", store.panelLock, onText = "Açık", offText = "Kapalı")
+            Hint("Açıkken panel aşağı çekilince hemen geri kapanır (bir an görünebilir). Pil tüketimi biraz artar.")
+            OutlinedButton(onClick = { store.updatePanelLock(!store.panelLock) }) {
+                Text(if (store.panelLock) "Kontrol panelini serbest bırak" else "Kontrol panelini kilitle", fontSize = 18.sp)
+            }
+        } else {
+            Hint("Kontrol paneli kilidi bu Android sürümünde desteklenmiyor (Android 12 ve üstü gerekir).")
+        }
+
+        HorizontalDivider()
+
         // --- Kutulara uygulama ata ---
         SectionTitle("Kutulara uygulama ata")
         Hint("Ana ekrandaki üç kutuya telefondaki istediğin uygulamayı koyabilirsin. Boş kutuya ana ekranda dokunarak da ekleyebilirsin. Kutuda uygulamanın simgesi ve aşağıda yazdığın ad görünür.")

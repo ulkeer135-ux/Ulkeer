@@ -109,6 +109,25 @@ class SettingsStore(context: Context) {
         emptyMap()
     }
 
+    /** Ses tuşu kilidi (LockService okur). Aramada ve çalarken tuşlar her zaman çalışır. */
+    var volumeLock by mutableStateOf(prefs.getBoolean(LockService.KEY_VOLUME_LOCK, true))
+        private set
+
+    /** Kontrol paneli kilidi (Android 12+). */
+    var panelLock by mutableStateOf(prefs.getBoolean(LockService.KEY_PANEL_LOCK, false))
+        private set
+
+    fun updateVolumeLock(enabled: Boolean) {
+        volumeLock = enabled
+        prefs.edit().putBoolean(LockService.KEY_VOLUME_LOCK, enabled).apply()
+    }
+
+    fun updatePanelLock(enabled: Boolean) {
+        panelLock = enabled
+        prefs.edit().putBoolean(LockService.KEY_PANEL_LOCK, enabled).commit()
+        LockService.refreshConfig()
+    }
+
     /** Ana ekrandaki kutu sayısı: 9 (3×3) ya da 6 (2×3, daha büyük kutular). */
     var tileCount by mutableStateOf(if (prefs.getInt(KEY_TILES, 9) == 6) 6 else 9)
         private set
