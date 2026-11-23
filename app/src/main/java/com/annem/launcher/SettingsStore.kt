@@ -36,6 +36,15 @@ class SettingsStore(context: Context) {
         prefs.edit().putString(KEY_GREETING, greetingName).apply()
     }
 
+    /** WhatsApp ve Telefon kutularında kırmızı sayılar gösterilsin mi? */
+    var badgesEnabled by mutableStateOf(prefs.getBoolean(KEY_BADGES, true))
+        private set
+
+    fun updateBadgesEnabled(enabled: Boolean) {
+        badgesEnabled = enabled
+        prefs.edit().putBoolean(KEY_BADGES, enabled).apply()
+    }
+
     /** Telefonun konumundan bulunan son semt adı (ör. "Kadıköy"). */
     var devicePlaceName: String?
         get() = prefs.getString(KEY_DEVICE_PLACE, null)
@@ -127,6 +136,7 @@ class SettingsStore(context: Context) {
         const val DEFAULT_CITY = "İstanbul"
         const val DEFAULT_GREETING = "Anneciğim"
         const val KEY_GREETING = "greeting_name"
+        const val KEY_BADGES = "badges_enabled"
         const val DEFAULT_LAT = 41.0082
         const val DEFAULT_LON = 28.9784
 

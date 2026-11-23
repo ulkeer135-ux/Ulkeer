@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import com.annem.launcher.BadgeService
 import com.annem.launcher.DeviceLocation
 import com.annem.launcher.LockService
 import com.annem.launcher.PhoneContacts
@@ -66,6 +67,7 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
     // Ayarlardan geri dönünce (ON_RESUME) servis durumunu yeniden oku.
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val lockEnabled = remember(lifecycleState) { LockService.isEnabled(context) }
+    val badgeAccess = remember(lifecycleState) { BadgeService.isEnabled(context) }
     var adminTick by remember { mutableIntStateOf(0) }
     val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         ScreenLock.reportActivation(context)
@@ -102,6 +104,26 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             fontSize = 16.sp,
             color = Palette.InkSoft,
         )
+
+        // --- Kırmızı sayılar ---
+        SectionTitle("Kırmızı bildirim sayıları")
+        Hint(
+            "WhatsApp kutusunda okunmamış mesaj, Telefon kutusunda cevapsız arama sayısı görünür. " +
+                "Uygulama bildirimleri yalnızca sayar; mesaj içeriğini okumaz, saklamaz, göndermez."
+        )
+        StatusRow("Bildirim erişimi", badgeAccess, onText = "Açık", offText = "Kapalı")
+        if (!badgeAccess) {
+            Hint("Açılan ekranda \"Annem – Bildirim sayıları\"ı aç ve izin ver.")
+            OutlinedButton(onClick = { openSettings(context, BadgeService.settingsIntent(context)) }) {
+                Text("Bildirim erişimini aç", fontSize = 18.sp)
+            }
+        }
+        StatusRow("Ana ekranda göster", store.badgesEnabled, onText = "Evet", offText = "Hayır")
+        OutlinedButton(onClick = { store.updateBadgesEnabled(!store.badgesEnabled) }) {
+            Text(if (store.badgesEnabled) "Sayıları gizle" else "Sayıları göster", fontSize = 18.sp)
+        }
+
+        HorizontalDivider()
 
         // --- Ekranı kapat ---
         SectionTitle("Ekranı Kapat düğmesi")

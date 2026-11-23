@@ -74,6 +74,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.annem.launcher.Actions
+import com.annem.launcher.Badges
 import com.annem.launcher.InstalledApps
 import com.annem.launcher.Slots
 import com.annem.launcher.LockResult
@@ -135,16 +136,25 @@ fun HomeScreen(
         ) {
             // Hava durumu kutusu diğer satırlardan %40 daha yüksek.
             WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1.4f))
+            val showBadges = store.badgesEnabled
             TileRow {
                 Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
                     onOpenContacts()
                 }
-                Tile("Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it) {
+                Tile(
+                    "Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it,
+                    badge = if (showBadges) Badges.missedCalls else 0,
+                    badgeWord = "cevapsız arama",
+                ) {
                     Actions.openDialer(context)
                 }
             }
             TileRow {
-                Tile("WhatsApp", Icons.Rounded.Forum, Palette.WaBg, Palette.WaLine, Palette.WaIcon, it) {
+                Tile(
+                    "WhatsApp", Icons.Rounded.Forum, Palette.WaBg, Palette.WaLine, Palette.WaIcon, it,
+                    badge = if (showBadges) Badges.whatsapp else 0,
+                    badgeWord = "okunmamış mesaj",
+                ) {
                     Actions.openWhatsApp(context)
                 }
                 SlotTile(store, Slots.MESSAGES, Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon, it, onPickApp)
@@ -361,12 +371,15 @@ private fun Tile(
     modifier: Modifier,
     appIcon: ImageBitmap? = null,
     empty: Boolean = false,
+    badge: Int = 0,
+    badgeWord: String = "yeni",
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
+    Box(modifier = modifier) {
     Surface(
         onClick = onClick,
-        modifier = modifier.then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
+        modifier = Modifier.fillMaxSize().then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
         shape = shape,
         color = Color.White,
         border = if (empty) null else BorderStroke(2.dp, line),
@@ -400,6 +413,38 @@ private fun Tile(
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
+    }
+    // Kırmızı sayı (okunmamış mesaj / cevapsız arama): kutunun sağ üst köşesinde.
+    if (badge > 0) {
+        CountBadge(
+            count = badge,
+            description = "$badge $badgeWord",
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+        )
+    }
+    }
+}
+
+@Composable
+private fun CountBadge(count: Int, description: String, modifier: Modifier) {
+    Box(
+        modifier = modifier
+            .semantics { contentDescription = description }
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .padding(3.dp)
+            .clip(CircleShape)
+            .background(Palette.Red),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (count > 9) "9+" else count.toString(),
+            fontSize = if (count > 9) 17.sp else 22.sp,
+            fontWeight = FontWeight.Black,
+            color = Color.White,
+            lineHeight = 24.sp,
+        )
     }
 }
 
