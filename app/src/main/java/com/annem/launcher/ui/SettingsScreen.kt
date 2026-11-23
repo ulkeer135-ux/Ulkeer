@@ -3,6 +3,7 @@ package com.annem.launcher.ui
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,6 +50,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import com.annem.launcher.DeviceLocation
 import com.annem.launcher.LockService
+import com.annem.launcher.PhoneContacts
+import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
 import com.annem.launcher.WeatherApi
 import kotlinx.coroutines.launch
@@ -61,6 +65,16 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
     // Ayarlardan geri dönünce (ON_RESUME) servis durumunu yeniden oku.
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val lockEnabled = remember(lifecycleState) { LockService.isEnabled(context) }
+    var adminTick by remember { mutableIntStateOf(0) }
+    val adminActive = remember(lifecycleState, adminTick) { ScreenLock.isAdminActive(context) }
+    var permissionTick by remember { mutableIntStateOf(0) }
+    val contactsGranted = remember(lifecycleState, permissionTick) { PhoneContacts.hasPermission(context) }
+    val callGranted = remember(lifecycleState, permissionTick) {
+        context.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
+    }
+    val contactsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        permissionTick++
+    }
     val locationGranted = remember(lifecycleState) { DeviceLocation.hasPermission(context) }
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -86,15 +100,23 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
 
         // --- Ekranı kapat ---
         SectionTitle("Ekranı Kapat düğmesi")
+        val lockReady = lockEnabled || adminActive
+        StatusRow("Durum", lockReady, onText = "Çalışıyor", offText = "Kurulmadı")
+        if (lockReady) {
+            OutlinedButton(onClick = { ScreenLock.lock(context) }) { Text("Dene (ekran kapanır)", fontSize = 18.sp) }
+        }
+
+        SubTitle("Yol 1 – Erişilebilirlik (önerilen)")
         if (!LockService.isSupported) {
-            Hint("Bu telefonun Android sürümü (9'dan eski) ekranı kapatmayı desteklemiyor.")
+            Hint("Bu telefonun Android sürümü (9'dan eski) bu yolu desteklemiyor; Yol 2'yi kullan.")
         } else {
-            StatusRow("Durum", lockEnabled, onText = "Açık", offText = "Kapalı")
+            Hint("Güç tuşu gibi çalışır; parmak izi kilidi etkilenmez.")
+            StatusRow("Erişilebilirlik", lockEnabled, onText = "Açık", offText = "Kapalı")
             if (!lockEnabled) {
                 Hint(
                     "1) Aşağıdaki düğmeyle Erişilebilirlik ayarlarını aç.\n" +
-                        "2) Listede \"Annem – Ekranı kapat\"ı bul ve aç.\n" +
-                        "Seçenek gri ve açılmıyorsa: önce \"Uygulama bilgisi\"ni aç, sağ üstteki ⋮ menüsünden " +
+                        "2) \"İndirilen uygulamalar\" ya da \"Yüklü hizmetler\" altında \"Annem – Ekranı kapat\"ı bul ve aç.\n" +
+                        "Seçenek gri ve açılmıyorsa: \"Uygulama bilgisi\"ni aç, sağ üstteki ⋮ menüsünden " +
                         "\"Kısıtlanmış ayarlara izin ver\"i seç, sonra 1. adımı tekrarla."
                 )
                 OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
@@ -103,7 +125,46 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                 OutlinedButton(onClick = { openAppInfo(context) }) {
                     Text("Uygulama bilgisi", fontSize = 18.sp)
                 }
+            } else {
+                Hint(
+                    "Bazı telefonlarda (OPPO, realme, Xiaomi) servis bir süre sonra kapanabilir. Olursa: " +
+                        "Uygulama bilgisi › Pil kullanımı › kısıtlamayı kaldır."
+                )
             }
+        }
+
+        SubTitle("Yol 2 – Cihaz yöneticisi (tek onay)")
+        Hint(
+            "Yol 1 açılamazsa kullan. Not: Parmak izi kullanılıyorsa, ekran bu yolla kapandıktan sonraki ilk " +
+                "açılışta telefon PIN/desen isteyebilir."
+        )
+        StatusRow("Cihaz yöneticisi", adminActive, onText = "Açık", offText = "Kapalı")
+        if (!adminActive) {
+            OutlinedButton(onClick = { openSettings(context, ScreenLock.adminActivationIntent(context)) }) {
+                Text("Cihaz yöneticisini aç", fontSize = 18.sp)
+            }
+        } else {
+            Hint("Uygulamayı telefondan silmeden önce bunu kapatman gerekir.")
+            OutlinedButton(onClick = {
+                ScreenLock.removeAdmin(context)
+                adminTick++
+            }) { Text("Cihaz yöneticisini kapat", fontSize = 18.sp) }
+        }
+
+        HorizontalDivider()
+
+        // --- Kişiler ---
+        SectionTitle("Kişiler ve arama")
+        StatusRow("Rehber izni", contactsGranted, onText = "Verildi", offText = "Verilmedi")
+        StatusRow("Doğrudan arama izni", callGranted, onText = "Verildi", offText = "Verilmedi")
+        Hint(
+            "Telefonun rehberinde yıldızla favorilere eklenen kişiler \"Kişiler\" ekranında en üstte görünür. " +
+                "Arama izni yoksa \"Ara\" telefon uygulamasını numara yazılı açar."
+        )
+        if (!contactsGranted || !callGranted) {
+            OutlinedButton(onClick = {
+                contactsLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE))
+            }) { Text("İzinleri ver", fontSize = 18.sp) }
         }
 
         HorizontalDivider()
@@ -198,6 +259,11 @@ private fun openSettings(context: Context, intent: Intent) {
 }
 
 @Composable
+private fun SubTitle(text: String) {
+    Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+}
+
+@Composable
 private fun SectionTitle(text: String) {
     Text(text, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Ink)
 }
@@ -221,7 +287,7 @@ private fun StatusRow(label: String, ok: Boolean, onText: String, offText: Strin
 }
 
 @Composable
-private fun BigBackButton(label: String, onClick: () -> Unit) {
+fun BigBackButton(label: String, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.height(64.dp),

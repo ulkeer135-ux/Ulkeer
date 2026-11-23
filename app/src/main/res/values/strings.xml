@@ -3,4 +3,6 @@
     <string name="app_name">Annem</string>
     <string name="lock_service_label">Annem – Ekranı kapat</string>
     <string name="lock_service_description">Annem ana ekranındaki büyük \"Ekranı Kapat\" düğmesinin telefonu kilitlemesini sağlar (güç tuşuna basmak gibi). Ekrandaki içerikleri okumaz.</string>
+    <string name="admin_label">Annem – Ekranı kapat</string>
+    <string name="admin_description">Ana ekrandaki \"Ekranı Kapat\" düğmesinin telefonu kilitlemesi için. Yalnızca ekranı kilitleme yetkisi kullanılır.</string>
 </resources>

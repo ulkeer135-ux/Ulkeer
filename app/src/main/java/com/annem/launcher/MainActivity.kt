@@ -20,12 +20,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.annem.launcher.ui.AnnemTheme
+import com.annem.launcher.ui.ContactsScreen
 import com.annem.launcher.ui.HomeScreen
 import com.annem.launcher.ui.Palette
 import com.annem.launcher.ui.SettingsScreen
 
 private sealed interface Screen {
     data object Home : Screen
+    data object Contacts : Screen
     data object Settings : Screen
 }
 
@@ -75,8 +77,10 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
         when (screen) {
             Screen.Home -> HomeScreen(
                 store = store,
+                onOpenContacts = { screen = Screen.Contacts },
                 onOpenSettings = { screen = Screen.Settings },
             )
+            Screen.Contacts -> ContactsScreen(onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(store = store, onBack = { screen = Screen.Home })
         }
     }

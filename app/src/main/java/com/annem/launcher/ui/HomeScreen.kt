@@ -26,11 +26,13 @@ import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +56,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.annem.launcher.Actions
+import com.annem.launcher.LockResult
+import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
@@ -63,8 +67,9 @@ import java.util.Locale
 private val TURKISH: Locale = Locale.forLanguageTag("tr-TR")
 
 @Composable
-fun HomeScreen(store: SettingsStore, onOpenSettings: () -> Unit) {
+fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
+    var lockProblem by remember { mutableStateOf<LockResult?>(null) }
 
     Column(
         modifier = Modifier
@@ -83,9 +88,7 @@ fun HomeScreen(store: SettingsStore, onOpenSettings: () -> Unit) {
             // Hava durumu kutusu diğer satırlardan %40 daha yüksek.
             WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1.4f))
             TileRow {
-                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
-                    Actions.openContacts(context)
-                }
+                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it, onOpenContacts)
                 Tile("Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it) {
                     Actions.openDialer(context)
                 }
@@ -108,7 +111,46 @@ fun HomeScreen(store: SettingsStore, onOpenSettings: () -> Unit) {
             }
         }
 
-        LockButton(onClick = { Actions.lockScreen(context) })
+        LockButton(onClick = {
+            val result = ScreenLock.lock(context)
+            if (result != LockResult.LOCKED) lockProblem = result
+        })
+    }
+
+    lockProblem?.let { problem ->
+        AlertDialog(
+            onDismissRequest = { lockProblem = null },
+            containerColor = Color.White,
+            title = { Text("Ekranı Kapat kurulmadı", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold) },
+            text = {
+                Text(
+                    if (problem == LockResult.SERVICE_NOT_CONNECTED) {
+                        "Ayar açık görünüyor ama telefon servisi durdurmuş. Ayarlar'da \"Cihaz yöneticisi\" " +
+                            "yöntemini açabilir ya da erişilebilirlik ayarını kapatıp yeniden açabilirsin."
+                    } else {
+                        "Bu düğmenin çalışması için bir kez kurulum gerekiyor. Ayarlar'da iki kolay yol var."
+                    },
+                    fontSize = 20.sp,
+                    color = Palette.Ink,
+                    lineHeight = 26.sp,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        lockProblem = null
+                        onOpenSettings()
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.height(56.dp),
+                ) { Text("Kurulumu aç", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { lockProblem = null }) {
+                    Text("Kapat", fontSize = 20.sp, color = Palette.Ink)
+                }
+            },
+        )
     }
 }
 
