@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.annem.launcher.ui.AnnemTheme
+import com.annem.launcher.ui.AppPickerScreen
 import com.annem.launcher.ui.ContactsScreen
 import com.annem.launcher.ui.HomeScreen
 import com.annem.launcher.ui.Palette
@@ -29,6 +30,7 @@ private sealed interface Screen {
     data object Home : Screen
     data object Contacts : Screen
     data object Settings : Screen
+    data class PickApp(val slotId: String) : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -66,7 +68,9 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
     LaunchedEffect(homeSignal) { screen = Screen.Home }
 
     // Ana ekranda geri tuşu hiçbir şey yapmaz; diğer ekranlarda bir adım geri gider.
-    BackHandler { screen = Screen.Home }
+    BackHandler {
+        screen = if (screen is Screen.PickApp) Screen.Settings else Screen.Home
+    }
 
     Box(
         modifier = Modifier
@@ -74,14 +78,26 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
             .background(Palette.Cream)
             .safeDrawingPadding(),
     ) {
-        when (screen) {
+        when (val current = screen) {
             Screen.Home -> HomeScreen(
                 store = store,
                 onOpenContacts = { screen = Screen.Contacts },
                 onOpenSettings = { screen = Screen.Settings },
             )
             Screen.Contacts -> ContactsScreen(onBack = { screen = Screen.Home })
-            Screen.Settings -> SettingsScreen(store = store, onBack = { screen = Screen.Home })
+            Screen.Settings -> SettingsScreen(
+                store = store,
+                onBack = { screen = Screen.Home },
+                onPickApp = { slotId -> screen = Screen.PickApp(slotId) },
+            )
+            is Screen.PickApp -> AppPickerScreen(
+                title = if (current.slotId == Slots.CAMERA) "Kamera kutusu için uygulama" else "Fotoğraflar kutusu için uygulama",
+                onPick = { app ->
+                    store.setSlot(current.slotId, app.packageName, app.label)
+                    screen = Screen.Settings
+                },
+                onBack = { screen = Screen.Settings },
+            )
         }
     }
 }

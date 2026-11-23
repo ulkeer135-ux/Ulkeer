@@ -17,6 +17,11 @@
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
         <package android:name="com.google.android.apps.photos" />
+        <!-- Kutulara uygulama atamak için: uygulama çekmecesindeki uygulamaları listeleyebilmek -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application

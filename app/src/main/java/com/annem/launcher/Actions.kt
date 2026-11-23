@@ -27,6 +27,12 @@ object Actions {
         }
     }
 
+    /** Paket adıyla bir uygulamayı açar; yüklü değilse false. */
+    fun openApp(context: Context, packageName: String): Boolean {
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        return start(context, intent)
+    }
+
     fun openDialer(context: Context) {
         if (!start(context, Intent(Intent.ACTION_DIAL))) {
             toast(context, "Telefon uygulaması açılamadı")

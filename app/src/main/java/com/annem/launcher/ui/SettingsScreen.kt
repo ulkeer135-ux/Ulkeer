@@ -52,13 +52,14 @@ import com.annem.launcher.DeviceLocation
 import com.annem.launcher.LockService
 import com.annem.launcher.PhoneContacts
 import com.annem.launcher.ScreenLock
+import com.annem.launcher.Slots
 import com.annem.launcher.SettingsStore
 import com.annem.launcher.WeatherApi
 import kotlinx.coroutines.launch
 
 /** Yakınlar için ayarlar: saate 3 sn basılı tutunca açılır. */
 @Composable
-fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
+fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId: String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -150,6 +151,14 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit) {
                 adminTick++
             }) { Text("Cihaz yöneticisini kapat", fontSize = 18.sp) }
         }
+
+        HorizontalDivider()
+
+        // --- Kutulara uygulama ata ---
+        SectionTitle("Kutulara uygulama ata")
+        Hint("Kamera ve Fotoğraflar kutularına telefondaki istediğin uygulamayı atayabilirsin. Kutuda o uygulamanın simgesi ve aşağıda yazdığın ad görünür.")
+        SlotSetting(store, Slots.CAMERA, "Kamera kutusu", "telefonun kamerası", onPickApp)
+        SlotSetting(store, Slots.GALLERY, "Fotoğraflar kutusu", "telefonun galerisi", onPickApp)
 
         HorizontalDivider()
 
@@ -255,6 +264,39 @@ private fun openSettings(context: Context, intent: Intent) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
         context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+@Composable
+private fun SlotSetting(
+    store: SettingsStore,
+    slotId: String,
+    title: String,
+    defaultName: String,
+    onPickApp: (String) -> Unit,
+) {
+    val slot = store.slot(slotId)
+    SubTitle(title)
+    Hint(if (slot == null) "Şu an: varsayılan ($defaultName)" else "Şu an: ${slot.label}")
+    if (slot != null) {
+        var labelDraft by remember(slot.packageName) { mutableStateOf(slot.label) }
+        OutlinedTextField(
+            value = labelDraft,
+            onValueChange = { labelDraft = it },
+            label = { Text("Kutudaki yazı") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(
+            enabled = labelDraft.isNotBlank() && labelDraft.trim() != slot.label,
+            onClick = { store.setSlotLabel(slotId, labelDraft.trim()) },
+        ) { Text("Yazıyı kaydet", fontSize = 18.sp) }
+    }
+    OutlinedButton(onClick = { onPickApp(slotId) }) {
+        Text(if (slot == null) "Uygulama seç" else "Başka uygulama seç", fontSize = 18.sp)
+    }
+    if (slot != null) {
+        OutlinedButton(onClick = { store.clearSlot(slotId) }) { Text("Varsayılana döndür", fontSize = 18.sp) }
     }
 }
 

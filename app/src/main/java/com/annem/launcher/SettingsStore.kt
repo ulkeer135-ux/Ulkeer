@@ -2,6 +2,7 @@ package com.annem.launcher
 
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.io.File
@@ -36,10 +37,35 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_ASKED, false)
         set(value) = prefs.edit().putBoolean(KEY_ASKED, value).apply()
 
+    /** Kamera / Fotoğraflar kutularına atanmış uygulamalar (yoksa varsayılan davranış). */
+    private val slots = mutableStateMapOf<String, TileSlot>()
+
     init {
+        Slots.ALL.forEach { id ->
+            val pkg = prefs.getString("slot_${id}_pkg", null)
+            val label = prefs.getString("slot_${id}_label", null)
+            if (pkg != null && label != null) slots[id] = TileSlot(pkg, label)
+        }
         // Eski sürümlerden kalan kayıtları temizle (Ailem listesi, fotoğraflar, acil numara).
         prefs.edit().remove("contacts").remove("emergency").apply()
         File(context.filesDir, "photos").deleteRecursively()
+    }
+
+    fun slot(id: String): TileSlot? = slots[id]
+
+    fun setSlot(id: String, packageName: String, label: String) {
+        slots[id] = TileSlot(packageName, label)
+        prefs.edit().putString("slot_${id}_pkg", packageName).putString("slot_${id}_label", label).apply()
+    }
+
+    fun setSlotLabel(id: String, label: String) {
+        val current = slots[id] ?: return
+        setSlot(id, current.packageName, label)
+    }
+
+    fun clearSlot(id: String) {
+        slots.remove(id)
+        prefs.edit().remove("slot_${id}_pkg").remove("slot_${id}_label").apply()
     }
 
     fun updateUseDeviceLocation(enabled: Boolean) {

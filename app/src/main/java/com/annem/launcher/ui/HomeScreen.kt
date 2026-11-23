@@ -1,6 +1,7 @@
 package com.annem.launcher.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -37,11 +38,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -50,12 +53,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.annem.launcher.Actions
+import com.annem.launcher.InstalledApps
+import com.annem.launcher.Slots
 import com.annem.launcher.LockResult
 import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
@@ -88,7 +94,9 @@ fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings:
             // Hava durumu kutusu diğer satırlardan %40 daha yüksek.
             WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(1.4f))
             TileRow {
-                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it, onOpenContacts)
+                Tile("Kişiler", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
+                    onOpenContacts()
+                }
                 Tile("Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it) {
                     Actions.openDialer(context)
                 }
@@ -102,10 +110,11 @@ fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings:
                 }
             }
             TileRow {
-                Tile("Kamera", Icons.Rounded.PhotoCamera, Palette.CamBg, Palette.CamLine, Palette.CamIcon, it) {
+                // Bu iki kutuya Ayarlar'dan istenen uygulama atanabilir.
+                SlotTile(store, Slots.CAMERA, "Kamera", Icons.Rounded.PhotoCamera, Palette.CamBg, Palette.CamLine, Palette.CamIcon, it) {
                     Actions.openCamera(context)
                 }
-                Tile("Fotoğraflar", Icons.Rounded.PhotoLibrary, Palette.PicBg, Palette.PicLine, Palette.PicIcon, it) {
+                SlotTile(store, Slots.GALLERY, "Fotoğraflar", Icons.Rounded.PhotoLibrary, Palette.PicBg, Palette.PicLine, Palette.PicIcon, it) {
                     Actions.openGallery(context)
                 }
             }
@@ -253,6 +262,40 @@ private fun ColumnScope.TileRow(content: @Composable (Modifier) -> Unit) {
     }
 }
 
+/**
+ * Atanmış uygulama varsa onu (kendi simgesi ve verilen adla) açar; yoksa ya da uygulama
+ * silinmişse kutunun varsayılan işini yapar.
+ */
+@Composable
+private fun SlotTile(
+    store: SettingsStore,
+    slotId: String,
+    defaultLabel: String,
+    defaultIcon: ImageVector,
+    background: Color,
+    line: Color,
+    iconTint: Color,
+    modifier: Modifier,
+    defaultAction: () -> Unit,
+) {
+    val context = LocalContext.current
+    val slot = store.slot(slotId)
+    val appIcon by produceState<ImageBitmap?>(initialValue = null, slot?.packageName) {
+        value = slot?.packageName?.let { InstalledApps.loadIcon(context, it) }
+    }
+    Tile(
+        label = slot?.label ?: defaultLabel,
+        icon = defaultIcon,
+        background = background,
+        line = line,
+        iconTint = iconTint,
+        modifier = modifier,
+        appIcon = if (slot != null) appIcon else null,
+    ) {
+        if (slot == null || !Actions.openApp(context, slot.packageName)) defaultAction()
+    }
+}
+
 @Composable
 private fun Tile(
     label: String,
@@ -261,6 +304,7 @@ private fun Tile(
     line: Color,
     iconTint: Color,
     modifier: Modifier,
+    appIcon: ImageBitmap? = null,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -276,7 +320,11 @@ private fun Tile(
             // Kısa ekranlarda simge küçülür, yazı küçülmez.
             val iconSize = if (maxHeight.value < 110f) 40.dp else 52.dp
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
+                if (appIcon != null) {
+                    Image(bitmap = appIcon, contentDescription = null, modifier = Modifier.size(iconSize))
+                } else {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
+                }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     label,
@@ -285,6 +333,8 @@ private fun Tile(
                     color = Palette.Ink,
                     maxLines = 1,
                     softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 6.dp),
                 )
             }
         }
