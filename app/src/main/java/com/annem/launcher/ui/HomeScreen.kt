@@ -354,7 +354,7 @@ private fun SlotTile(
     val installed = remember(slot?.packageName) {
         slot != null && context.packageManager.getLaunchIntentForPackage(slot.packageName) != null
     }
-    val appIcon by produceState<ImageBitmap?>(initialValue = null, slot?.packageName) {
+    val appIcon by produceState(initialValue = slot?.packageName?.let { InstalledApps.cachedIcon(it) }, slot?.packageName) {
         value = slot?.packageName?.let { InstalledApps.loadIcon(context, it) }
     }
 

@@ -1,0 +1,4 @@
+# Annem: ana ekran açılışı ve geri dönüş için önceden derlenecek kod.
+# Compose kütüphaneleri kendi profillerini getirir; bunlar uygulamanın kendi sınıfları.
+HSPLcom/annem/launcher/**->**(**)**
+Lcom/annem/launcher/**;

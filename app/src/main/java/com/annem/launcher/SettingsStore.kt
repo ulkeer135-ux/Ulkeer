@@ -73,9 +73,11 @@ class SettingsStore(context: Context) {
             val label = prefs.getString("slot_${id}_label", null)
             if (pkg != null && label != null) slots[id] = TileSlot(pkg, label)
         }
-        // Eski sürümlerden kalan kayıtları temizle (Ailem listesi, fotoğraflar, acil numara).
-        prefs.edit().remove("contacts").remove("emergency").apply()
-        File(context.filesDir, "photos").deleteRecursively()
+        // Eski sürümlerden kalan kayıtları bir kez temizle (Ailem listesi, fotoğraflar, acil numara).
+        if (!prefs.getBoolean("legacy_cleaned", false)) {
+            prefs.edit().remove("contacts").remove("emergency").putBoolean("legacy_cleaned", true).apply()
+            File(context.filesDir, "photos").deleteRecursively()
+        }
     }
 
     fun slot(id: String): TileSlot? = slots[id]

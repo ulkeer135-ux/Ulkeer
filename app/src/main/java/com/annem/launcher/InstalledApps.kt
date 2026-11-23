@@ -52,11 +52,21 @@ object InstalledApps {
             .sortedWith(compareBy<InstalledApp, String>(collator) { it.label })
     }
 
-    suspend fun loadIcon(context: Context, packageName: String): ImageBitmap? = withContext(Dispatchers.IO) {
-        try {
-            drawableToBitmap(context.packageManager.getApplicationIcon(packageName)).asImageBitmap()
-        } catch (e: Exception) {
-            null
+    // Ana ekran her açıldığında simgeleri yeniden çizmemek için küçük bir bellek önbelleği.
+    private val iconCache = android.util.LruCache<String, ImageBitmap>(48)
+
+    /** Önbellekte varsa beklemeden döner (ilk karede simge hazır olsun diye). */
+    fun cachedIcon(packageName: String): ImageBitmap? = iconCache.get(packageName)
+
+    suspend fun loadIcon(context: Context, packageName: String): ImageBitmap? {
+        iconCache.get(packageName)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            try {
+                drawableToBitmap(context.packageManager.getApplicationIcon(packageName)).asImageBitmap()
+                    .also { iconCache.put(packageName, it) }
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 

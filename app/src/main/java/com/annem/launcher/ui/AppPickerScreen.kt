@@ -86,7 +86,7 @@ fun AppPickerScreen(title: String, backLabel: String, onPick: (InstalledApp) -> 
 @Composable
 private fun AppRow(app: InstalledApp, onClick: () -> Unit) {
     val context = LocalContext.current
-    val icon by produceState<ImageBitmap?>(initialValue = null, app.packageName) {
+    val icon by produceState(initialValue = InstalledApps.cachedIcon(app.packageName), app.packageName) {
         value = InstalledApps.loadIcon(context, app.packageName)
     }
     Surface(

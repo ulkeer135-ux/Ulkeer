@@ -39,21 +39,24 @@ object DeviceLocation {
     suspend fun current(context: Context): Location? {
         if (!hasPermission(context)) return null
         val manager = context.getSystemService(LocationManager::class.java) ?: return null
-        val providers = try {
-            manager.getProviders(true)
-        } catch (e: Exception) {
-            emptyList()
-        }
-
-        val lastKnown = providers
-            .mapNotNull { provider ->
-                try {
-                    manager.getLastKnownLocation(provider)
-                } catch (e: Exception) {
-                    null
-                }
+        // Sistem çağrıları arayüz iş parçacığını bekletmesin.
+        val (providers, lastKnown) = withContext(Dispatchers.IO) {
+            val enabled = try {
+                manager.getProviders(true)
+            } catch (e: Exception) {
+                emptyList()
             }
-            .maxByOrNull { it.time }
+            val last = enabled
+                .mapNotNull { provider ->
+                    try {
+                        manager.getLastKnownLocation(provider)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                .maxByOrNull { it.time }
+            enabled to last
+        }
         if (lastKnown != null && System.currentTimeMillis() - lastKnown.time < FRESH_ENOUGH_MS) {
             return lastKnown
         }
