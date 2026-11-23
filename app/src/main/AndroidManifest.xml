@@ -40,7 +40,9 @@
             android:excludeFromRecents="true"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection"
-            android:windowSoftInputMode="adjustResize">
+            android:resumeWhilePausing="true"
+            android:taskAffinity=""
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
