@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        StartupStats.onActivityCreated(this)
 
         val store = SettingsStore(applicationContext)
 
@@ -53,6 +54,11 @@ class MainActivity : ComponentActivity() {
                 AnnemApp(store = store, homeSignal = homeSignal.intValue)
             }
         }
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        StartupStats.onActivityRestarted(this)
     }
 
     override fun onResume() {

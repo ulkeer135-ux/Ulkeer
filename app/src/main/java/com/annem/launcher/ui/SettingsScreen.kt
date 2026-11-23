@@ -56,6 +56,7 @@ import com.annem.launcher.PhoneContacts
 import com.annem.launcher.ScreenLock
 import com.annem.launcher.Slots
 import com.annem.launcher.SettingsStore
+import com.annem.launcher.StartupStats
 import com.annem.launcher.WeatherApi
 import kotlinx.coroutines.launch
 
@@ -319,6 +320,20 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             },
         ) { Text(if (searching) "Aranıyor…" else "Sabit şehir olarak kaydet", fontSize = 18.sp) }
         cityMessage?.let { Hint(it) }
+
+        HorizontalDivider()
+
+        // --- Açılış ölçümleri ---
+        SectionTitle("Açılış ölçümleri")
+        Hint(
+            "Ana ekranın kaç milisaniyede göründüğü. \"Sıfırdan açılış\": telefon Annem'i arka planda " +
+                "kapatmış. \"Geri dönüş\": Annem bellekteydi. 300 ms altı akıcı sayılır."
+        )
+        if (StartupStats.events.isEmpty()) {
+            Hint("Henüz ölçüm yok. Bir uygulamaya girip ana ekran tuşuna bas, sonra buraya bak.")
+        } else {
+            StartupStats.events.forEach { Text(it, fontSize = 16.sp, color = Palette.Ink) }
+        }
 
         HorizontalDivider()
 
