@@ -30,7 +30,7 @@ private sealed interface Screen {
     data object Home : Screen
     data object Contacts : Screen
     data object Settings : Screen
-    data class PickApp(val slotId: String) : Screen
+    data class PickApp(val slotId: String, val fromHome: Boolean) : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -69,7 +69,8 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
 
     // Ana ekranda geri tuşu hiçbir şey yapmaz; diğer ekranlarda bir adım geri gider.
     BackHandler {
-        screen = if (screen is Screen.PickApp) Screen.Settings else Screen.Home
+        val current = screen
+        screen = if (current is Screen.PickApp && !current.fromHome) Screen.Settings else Screen.Home
     }
 
     Box(
@@ -83,20 +84,22 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
                 store = store,
                 onOpenContacts = { screen = Screen.Contacts },
                 onOpenSettings = { screen = Screen.Settings },
+                onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
             )
             Screen.Contacts -> ContactsScreen(onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(
                 store = store,
                 onBack = { screen = Screen.Home },
-                onPickApp = { slotId -> screen = Screen.PickApp(slotId) },
+                onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = false) },
             )
             is Screen.PickApp -> AppPickerScreen(
-                title = if (current.slotId == Slots.CAMERA) "Kamera kutusu için uygulama" else "Fotoğraflar kutusu için uygulama",
+                title = "${Slots.title(current.slotId)} için uygulama seç",
+                backLabel = if (current.fromHome) "Ana Ekran" else "Ayarlar",
                 onPick = { app ->
                     store.setSlot(current.slotId, app.packageName, app.label)
-                    screen = Screen.Settings
+                    screen = if (current.fromHome) Screen.Home else Screen.Settings
                 },
-                onBack = { screen = Screen.Settings },
+                onBack = { screen = if (current.fromHome) Screen.Home else Screen.Settings },
             )
         }
     }

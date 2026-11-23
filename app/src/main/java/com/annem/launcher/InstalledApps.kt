@@ -13,11 +13,21 @@ import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
 
-/** Ana ekrandaki ayarlanabilir kutular. */
+/**
+ * Ana ekrandaki, uygulaması kullanıcı tarafından seçilen üç kutu. Kimlikler eski
+ * sürümlerle uyumlu kalsın diye değişmedi (camera/gallery eski atamaları korur).
+ */
 object Slots {
-    const val CAMERA = "camera"
-    const val GALLERY = "gallery"
-    val ALL = listOf(CAMERA, GALLERY)
+    const val MESSAGES = "messages" // orta sağ
+    const val CAMERA = "camera"     // alt sol
+    const val GALLERY = "gallery"   // alt sağ
+    val ALL = listOf(MESSAGES, CAMERA, GALLERY)
+
+    fun title(id: String): String = when (id) {
+        MESSAGES -> "Orta sağdaki kutu"
+        CAMERA -> "Alt soldaki kutu"
+        else -> "Alt sağdaki kutu"
+    }
 }
 
 /** Bir kutuya atanmış uygulama ve kutuda görünecek yazı. */

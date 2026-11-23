@@ -162,9 +162,8 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
 
         // --- Kutulara uygulama ata ---
         SectionTitle("Kutulara uygulama ata")
-        Hint("Kamera ve Fotoğraflar kutularına telefondaki istediğin uygulamayı atayabilirsin. Kutuda o uygulamanın simgesi ve aşağıda yazdığın ad görünür.")
-        SlotSetting(store, Slots.CAMERA, "Kamera kutusu", "telefonun kamerası", onPickApp)
-        SlotSetting(store, Slots.GALLERY, "Fotoğraflar kutusu", "telefonun galerisi", onPickApp)
+        Hint("Ana ekrandaki üç kutuya telefondaki istediğin uygulamayı koyabilirsin. Boş kutuya ana ekranda dokunarak da ekleyebilirsin. Kutuda uygulamanın simgesi ve aşağıda yazdığın ad görünür.")
+        Slots.ALL.forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
 
         HorizontalDivider()
 
@@ -278,12 +277,11 @@ private fun SlotSetting(
     store: SettingsStore,
     slotId: String,
     title: String,
-    defaultName: String,
     onPickApp: (String) -> Unit,
 ) {
     val slot = store.slot(slotId)
     SubTitle(title)
-    Hint(if (slot == null) "Şu an: varsayılan ($defaultName)" else "Şu an: ${slot.label}")
+    Hint(if (slot == null) "Şu an: boş" else "Şu an: ${slot.label}")
     if (slot != null) {
         var labelDraft by remember(slot.packageName) { mutableStateOf(slot.label) }
         OutlinedTextField(
@@ -302,7 +300,7 @@ private fun SlotSetting(
         Text(if (slot == null) "Uygulama seç" else "Başka uygulama seç", fontSize = 18.sp)
     }
     if (slot != null) {
-        OutlinedButton(onClick = { store.clearSlot(slotId) }) { Text("Varsayılana döndür", fontSize = 18.sp) }
+        OutlinedButton(onClick = { store.clearSlot(slotId) }) { Text("Kutuyu boşalt", fontSize = 18.sp) }
     }
 }
 

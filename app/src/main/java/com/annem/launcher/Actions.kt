@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
-import android.provider.MediaStore
 import android.widget.Toast
 import java.net.URLEncoder
 
@@ -16,7 +15,6 @@ object Actions {
 
     private const val WHATSAPP = "com.whatsapp"
     private const val WHATSAPP_BUSINESS = "com.whatsapp.w4b"
-    private const val GOOGLE_PHOTOS = "com.google.android.apps.photos"
 
     /** Telefonun kendi rehber uygulamasını açar. */
     fun openContacts(context: Context) {
@@ -45,27 +43,6 @@ object Actions {
         if (intent == null || !start(context, intent)) {
             toast(context, "WhatsApp bu telefonda yüklü değil")
         }
-    }
-
-    fun openMessages(context: Context) {
-        val main = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING)
-        val fallback = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))
-        if (!start(context, main) && !start(context, fallback)) {
-            toast(context, "Mesajlar açılamadı")
-        }
-    }
-
-    fun openCamera(context: Context) {
-        if (!start(context, Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA))) {
-            toast(context, "Kamera açılamadı")
-        }
-    }
-
-    fun openGallery(context: Context) {
-        val gallery = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY)
-        val photos = context.packageManager.getLaunchIntentForPackage(GOOGLE_PHOTOS)
-        val ok = start(context, gallery) || (photos != null && start(context, photos))
-        if (!ok) toast(context, "Fotoğraflar açılamadı")
     }
 
     /**

@@ -22,13 +22,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddCircle
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.PhotoCamera
-import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PowerSettingsNew
-import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -75,7 +74,12 @@ import java.util.Locale
 private val TURKISH: Locale = Locale.forLanguageTag("tr-TR")
 
 @Composable
-fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings: () -> Unit) {
+fun HomeScreen(
+    store: SettingsStore,
+    onOpenContacts: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onPickApp: (slotId: String) -> Unit,
+) {
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
     // Cihaz yöneticisi onay ekranı: sonuç gelince kurulduysa haber ver.
@@ -111,18 +115,11 @@ fun HomeScreen(store: SettingsStore, onOpenContacts: () -> Unit, onOpenSettings:
                 Tile("WhatsApp", Icons.Rounded.Forum, Palette.WaBg, Palette.WaLine, Palette.WaIcon, it) {
                     Actions.openWhatsApp(context)
                 }
-                Tile("Mesajlar", Icons.Rounded.Sms, Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon, it) {
-                    Actions.openMessages(context)
-                }
+                SlotTile(store, Slots.MESSAGES, Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon, it, onPickApp)
             }
             TileRow {
-                // Bu iki kutuya Ayarlar'dan istenen uygulama atanabilir.
-                SlotTile(store, Slots.CAMERA, "Kamera", Icons.Rounded.PhotoCamera, Palette.CamBg, Palette.CamLine, Palette.CamIcon, it) {
-                    Actions.openCamera(context)
-                }
-                SlotTile(store, Slots.GALLERY, "Fotoğraflar", Icons.Rounded.PhotoLibrary, Palette.PicBg, Palette.PicLine, Palette.PicIcon, it) {
-                    Actions.openGallery(context)
-                }
+                SlotTile(store, Slots.CAMERA, Palette.CamBg, Palette.CamLine, Palette.CamIcon, it, onPickApp)
+                SlotTile(store, Slots.GALLERY, Palette.PicBg, Palette.PicLine, Palette.PicIcon, it, onPickApp)
             }
         }
 
@@ -275,36 +272,45 @@ private fun ColumnScope.TileRow(content: @Composable (Modifier) -> Unit) {
 }
 
 /**
- * Atanmış uygulama varsa onu (kendi simgesi ve verilen adla) açar; yoksa ya da uygulama
- * silinmişse kutunun varsayılan işini yapar.
+ * Kullanıcının uygulama seçtiği kutu. Boşsa (ya da atanan uygulama silinmişse)
+ * "Uygulama ekle" yazar ve dokununca uygulama listesi açılır; doluysa uygulamanın
+ * kendi simgesi ve verilen adla o uygulamayı açar. Değiştirmek/boşaltmak: Ayarlar.
  */
 @Composable
 private fun SlotTile(
     store: SettingsStore,
     slotId: String,
-    defaultLabel: String,
-    defaultIcon: ImageVector,
     background: Color,
     line: Color,
     iconTint: Color,
     modifier: Modifier,
-    defaultAction: () -> Unit,
+    onPickApp: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val slot = store.slot(slotId)
+    val installed = remember(slot?.packageName) {
+        slot != null && context.packageManager.getLaunchIntentForPackage(slot.packageName) != null
+    }
     val appIcon by produceState<ImageBitmap?>(initialValue = null, slot?.packageName) {
         value = slot?.packageName?.let { InstalledApps.loadIcon(context, it) }
     }
-    Tile(
-        label = slot?.label ?: defaultLabel,
-        icon = defaultIcon,
-        background = background,
-        line = line,
-        iconTint = iconTint,
-        modifier = modifier,
-        appIcon = if (slot != null) appIcon else null,
-    ) {
-        if (slot == null || !Actions.openApp(context, slot.packageName)) defaultAction()
+
+    if (slot != null && installed) {
+        Tile(
+            label = slot.label,
+            icon = Icons.Rounded.Apps,
+            background = background,
+            line = line,
+            iconTint = iconTint,
+            modifier = modifier,
+            appIcon = appIcon,
+        ) {
+            if (!Actions.openApp(context, slot.packageName)) onPickApp(slotId)
+        }
+    } else {
+        Tile("Uygulama ekle", Icons.Rounded.AddCircle, background, line, iconTint, modifier) {
+            onPickApp(slotId)
+        }
     }
 }
 

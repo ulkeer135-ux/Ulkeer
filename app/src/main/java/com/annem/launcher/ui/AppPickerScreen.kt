@@ -41,7 +41,7 @@ import java.util.Locale
 
 /** Bir kutuya atanacak uygulamayı seçme ekranı (yakınlar için, Ayarlar'dan açılır). */
 @Composable
-fun AppPickerScreen(title: String, onPick: (InstalledApp) -> Unit, onBack: () -> Unit) {
+fun AppPickerScreen(title: String, backLabel: String, onPick: (InstalledApp) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     var apps by remember { mutableStateOf<List<InstalledApp>?>(null) }
     var query by remember { mutableStateOf("") }
@@ -60,7 +60,7 @@ fun AppPickerScreen(title: String, onPick: (InstalledApp) -> Unit, onBack: () ->
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        BigBackButton(label = "Ayarlar", onClick = onBack)
+        BigBackButton(label = backLabel, onClick = onBack)
         Text(title, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Ink)
         OutlinedTextField(
             value = query,

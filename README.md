@@ -6,7 +6,7 @@ Kotlin + Jetpack Compose ile yazılmış, internet ya da hesap istemeyen bir lau
 
 - **Ana ekran:** büyük saat ve tarih, yanında şarj yüzdesi (şarjdayken yeşil şimşek, %20 altında kırmızı "şarja tak" uyarısı).
   - **Hava durumu** kutusu (büyük): anlık sıcaklık, durum, günün en yüksek/en düşük değerleri ve semt adı. Telefonun yaklaşık konumunu kullanır; izin yoksa ya da konum kapalıysa Ayarlar'daki şehri. 30 dakikada bir güncellenir, internet yoksa son değeri gösterir. Dokununca Google'ın hava durumu sayfası açılır.
-  - Altı büyük kutu: Kişiler, Telefon, WhatsApp, Mesajlar, Kamera, Fotoğraflar. **Kamera** ve **Fotoğraflar** kutularına Ayarlar'dan istenen uygulama atanabilir (kutuda uygulamanın simgesi ve verilen ad görünür).
+  - Altı büyük kutu: Kişiler, Telefon, WhatsApp ve **uygulaması kullanıcı tarafından seçilen üç kutu**. Boş kutuda "Uygulama ekle" yazar; dokununca uygulama listesi açılır. Kutuda seçilen uygulamanın simgesi ve verilen ad görünür. Değiştirmek/boşaltmak: Ayarlar › Kutulara uygulama ata.
   - **Ekranı Kapat** düğmesi: ekranı kilitler. Kurulmamışsa basınca kurulumu açan bir pencere çıkar.
 - **Kişiler ("Kimi arayalım?"):** telefon rehberindeki kişiler büyük kartlarda (fotoğraf ya da baş harf, ad, büyük **Ara** düğmesi). Rehberde yıldızlı (favori) kişiler en üstte.
 - **Ayarlar (yakınlar için):** saate **3 saniye basılı tutunca** açılır. Ekranı kapatma kurulumu (iki yol), kutulara uygulama atama, kişiler ve arama izinleri, hava durumu konumu (telefonun konumu ya da sabit şehir), varsayılan ana ekran seçimi.
