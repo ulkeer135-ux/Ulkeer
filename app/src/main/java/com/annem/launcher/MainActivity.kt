@@ -10,7 +10,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -88,7 +92,11 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
         modifier = Modifier
             .fillMaxSize()
             .background(Palette.Cream)
-            .safeDrawingPadding(),
+            // Yalnızca sistem çubukları ve çentik: klavye (IME) burada hesaba katılmaz.
+            // Klavye açık bir uygulamadan (Trendyol, Claude…) dönerken klavyenin kapanma
+            // animasyonu ana ekranı her karede yeniden yerleştiriyordu; takılma buydu.
+            // Yazı yazılan ekranlar (Ayarlar, uygulama seçici) kendi imePadding'ini uygular.
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)),
     ) {
         when (val current = screen) {
             Screen.Home -> HomeScreen(
