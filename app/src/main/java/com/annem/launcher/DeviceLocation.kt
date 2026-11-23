@@ -111,7 +111,7 @@ object DeviceLocation {
         val geocoder = Geocoder(context, Locale.forLanguageTag("tr-TR"))
         val address: Address? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             withTimeoutOrNull(10_000L) {
-                suspendCancellableCoroutine { cont ->
+                suspendCancellableCoroutine<Address?> { cont ->
                     try {
                         geocoder.getFromLocation(latitude, longitude, 1, object : Geocoder.GeocodeListener {
                             override fun onGeocode(addresses: MutableList<Address>) {

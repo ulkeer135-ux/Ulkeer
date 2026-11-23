@@ -23,8 +23,18 @@ jobs:
       - name: APK derle
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
           cp app/build/outputs/apk/debug/app-debug.apk Annem.apk
+
+      # Derleme hatalarını giriş yapmadan da görülebilen uyarı notlarına (annotation) yazar.
+      - name: Derleme hatalarını göster
+        if: failure()
+        run: |
+          errs=$(grep -E "^e: " build.log | head -25)
+          if [ -z "$errs" ]; then errs=$(grep -A 12 "What went wrong" build.log | head -25); fi
+          msg=$(printf '%s' "$errs" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Derleme hatası::$msg"
 
       - uses: actions/upload-artifact@v4
         with:
