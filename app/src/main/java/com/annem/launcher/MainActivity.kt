@@ -20,17 +20,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.annem.launcher.ui.AnnemTheme
-import com.annem.launcher.ui.EditContactScreen
-import com.annem.launcher.ui.FamilyScreen
 import com.annem.launcher.ui.HomeScreen
 import com.annem.launcher.ui.Palette
 import com.annem.launcher.ui.SettingsScreen
 
 private sealed interface Screen {
     data object Home : Screen
-    data object Family : Screen
     data object Settings : Screen
-    data class Edit(val contactId: String?) : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -46,7 +42,7 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
 
-        val store = ContactStore(applicationContext)
+        val store = SettingsStore(applicationContext)
 
         setContent {
             AnnemTheme {
@@ -62,18 +58,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AnnemApp(store: ContactStore, homeSignal: Int) {
+private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
     LaunchedEffect(homeSignal) { screen = Screen.Home }
 
     // Ana ekranda geri tuşu hiçbir şey yapmaz; diğer ekranlarda bir adım geri gider.
-    BackHandler {
-        screen = when (screen) {
-            is Screen.Edit -> Screen.Settings
-            else -> Screen.Home
-        }
-    }
+    BackHandler { screen = Screen.Home }
 
     Box(
         modifier = Modifier
@@ -81,23 +72,12 @@ private fun AnnemApp(store: ContactStore, homeSignal: Int) {
             .background(Palette.Cream)
             .safeDrawingPadding(),
     ) {
-        when (val current = screen) {
+        when (screen) {
             Screen.Home -> HomeScreen(
                 emergencyNumber = store.emergencyNumber,
-                onOpenFamily = { screen = Screen.Family },
                 onOpenSettings = { screen = Screen.Settings },
             )
-            Screen.Family -> FamilyScreen(store = store, onBack = { screen = Screen.Home })
-            Screen.Settings -> SettingsScreen(
-                store = store,
-                onBack = { screen = Screen.Home },
-                onEdit = { id -> screen = Screen.Edit(id) },
-            )
-            is Screen.Edit -> EditContactScreen(
-                store = store,
-                contactId = current.contactId,
-                onDone = { screen = Screen.Settings },
-            )
+            Screen.Settings -> SettingsScreen(store = store, onBack = { screen = Screen.Home })
         }
     }
 }

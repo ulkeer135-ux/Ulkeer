@@ -19,7 +19,7 @@ object Palette {
     val Red = Color(0xFFB4361E)
 
     // Kutular: açık zemin, koyu simge. Her kutu renk tonunun yanında açıklık olarak da ayrışır.
-    val FamilyBg = Color(0xFFDCE8FA); val FamilyLine = Color(0xFF9DB6DB); val FamilyIcon = Color(0xFF1F4E9C)
+    val ContactsBg = Color(0xFFDCE8FA); val ContactsLine = Color(0xFF9DB6DB); val ContactsIcon = Color(0xFF1F4E9C)
     val PhoneBg = Color(0xFFDDF1E3); val PhoneLine = Color(0xFF9CCBAA); val PhoneIcon = Color(0xFF1E6B3A)
     val WaBg = Color(0xFFD6EFE6); val WaLine = Color(0xFF94C9B5); val WaIcon = Color(0xFF17624A)
     val SmsBg = Color(0xFFFFF0C7); val SmsLine = Color(0xFFE3C66E); val SmsIcon = Color(0xFF7A5300)

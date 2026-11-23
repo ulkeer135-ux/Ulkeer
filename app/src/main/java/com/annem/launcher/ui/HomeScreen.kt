@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Sms
@@ -61,7 +61,6 @@ private val TURKISH: Locale = Locale.forLanguageTag("tr-TR")
 @Composable
 fun HomeScreen(
     emergencyNumber: String,
-    onOpenFamily: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -82,7 +81,9 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             TileRow {
-                Tile("Ailem", Icons.Rounded.Groups, Palette.FamilyBg, Palette.FamilyLine, Palette.FamilyIcon, it, onOpenFamily)
+                Tile("Rehber", Icons.Rounded.Contacts, Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon, it) {
+                    Actions.openContacts(context)
+                }
                 Tile("Telefon", Icons.Rounded.Call, Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon, it) {
                     Actions.openDialer(context)
                 }
