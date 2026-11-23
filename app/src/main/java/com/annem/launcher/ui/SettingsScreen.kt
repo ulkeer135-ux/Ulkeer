@@ -85,6 +85,10 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
         permissionTick++
     }
     val locationGranted = remember(lifecycleState) { DeviceLocation.hasPermission(context) }
+    val keepAlive = remember(lifecycleState) {
+        context.getSystemService(android.os.PowerManager::class.java)
+            ?.isIgnoringBatteryOptimizations(context.packageName) == true
+    }
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     var cityDraft by remember { mutableStateOf(store.weatherCity) }
@@ -298,6 +302,37 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
 
         HorizontalDivider()
 
+        // --- Arka planda kapanmasın ---
+        SectionTitle("Annem arka planda kapanmasın")
+        Hint(
+            "Telefon pil için Annem'i kapatırsa, ana ekran tuşunda bir an duvar kağıdı görünür " +
+                "ve Annem baştan açılır. Bunu önlemek için iki adım:"
+        )
+        Text(
+            if (keepAlive) "1. Pil kısıtlaması kaldırıldı ✓" else "1. Pil kısıtlaması açık",
+            fontSize = 18.sp,
+            color = if (keepAlive) Color(0xFF2E7D32) else Palette.Ink,
+            fontWeight = FontWeight.Bold,
+        )
+        if (!keepAlive) {
+            OutlinedButton(onClick = {
+                try {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.fromParts("package", context.packageName, null),
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) {
+                    openSettings(context, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }) { Text("Pil kısıtlamasını kaldır", fontSize = 18.sp) }
+        }
+        Text("2. Uygulama bilgisi › Pil kullanımı › \"Arka planda etkinliğe izin ver\" açık olsun.", fontSize = 16.sp, color = Palette.Ink)
+        OutlinedButton(onClick = { openAppInfo(context) }) { Text("Uygulama bilgisini aç", fontSize = 18.sp) }
+
+        HorizontalDivider()
+
         // --- Açılış ölçümleri ---
         SectionTitle("Açılış ölçümleri")
         Hint(
@@ -330,11 +365,13 @@ private fun openAppInfo(context: Context) {
     )
 }
 
-private fun openSettings(context: Context, intent: Intent) {
-    try {
+private fun openSettings(context: Context, intent: Intent): Boolean {
+    return try {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
     } catch (e: Exception) {
         context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        false
     }
 }
 

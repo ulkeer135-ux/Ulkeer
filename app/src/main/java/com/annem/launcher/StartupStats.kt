@@ -40,7 +40,30 @@ object StartupStats {
         if (!firstActivityInProcess) return
         firstActivityInProcess = false
         val start = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) Process.getStartUptimeMillis() else SystemClock.uptimeMillis()
-        measureUntilDrawn(context, "Sıfırdan açılış", start)
+        measureUntilDrawn(context, "Sıfırdan açılış" + lastExitReason(context), start)
+    }
+
+    /** Annem bir önceki sefer neden kapandı? (Android 11+) Ölçüm satırına eklenir. */
+    private fun lastExitReason(context: Context): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return ""
+        return try {
+            val am = context.getSystemService(android.app.ActivityManager::class.java)
+            val info = am.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull() ?: return ""
+            val why = when (info.reason) {
+                android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "bellek azdı"
+                android.app.ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "güncellendi"
+                android.app.ApplicationExitInfo.REASON_USER_REQUESTED,
+                android.app.ApplicationExitInfo.REASON_USER_STOPPED -> "telefon kapattı"
+                android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "pil tasarrufu"
+                android.app.ApplicationExitInfo.REASON_FREEZER -> "donduruldu"
+                android.app.ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "izin değişti"
+                android.app.ApplicationExitInfo.REASON_CRASH,
+                android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> "hata"
+                android.app.ApplicationExitInfo.REASON_SIGNALED -> "sistem kapattı"
+                else -> "kod ${info.reason}"
+            }
+            " ($why)"
+        } catch (_: Throwable) { "" }
     }
 
     /** onRestart'ta çağrılır (başka bir uygulamadan ana ekrana dönüş). */
