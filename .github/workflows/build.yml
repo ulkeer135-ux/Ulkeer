@@ -32,6 +32,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v1.0.${{ github.run_number }}" Amperimetre.apk \
-            --title "Amperimetre v1.0.${{ github.run_number }}" \
+          gh release create "v1.1.${{ github.run_number }}" Amperimetre.apk \
+            --title "Amperimetre v1.1.${{ github.run_number }}" \
             --notes "Şarj akımı ölçer. Ekran kapanınca ölçüm sıfırlanmaz." --latest

@@ -156,11 +156,9 @@ public class ChargeService extends Service {
         long cc = bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER);
         chargeCounterUah = (cc == Long.MIN_VALUE) ? 0 : cc;
 
-        int ma = Math.abs(toMilliAmps(raw));
+        int maSigned = toMilliAmps(raw);
         boolean charging = plugged != 0;
-        boolean actuallyCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
-                || status == BatteryManager.BATTERY_STATUS_FULL;
-        currentMa = (charging && actuallyCharging) ? ma : -ma;
+        currentMa = normalizeSign(maSigned, charging);
 
         window.addLast(currentMa);
         while (window.size() > SMOOTH_WINDOW) window.removeFirst();
@@ -199,6 +197,48 @@ public class ChargeService extends Service {
         tickCount++;
         if (tickCount % 2 == 0) nm.notify(NOTIF_ID, buildNotification());
         if (tickCount % 10 == 0) persist();
+    }
+
+    /**
+     * Cihazın işaret yönünü öğrenir ve akımı "+ = bataryaya giriyor, - = bataryadan çıkıyor"
+     * biçimine çevirir. Bazı telefonlar şarjı artı, bazıları eksi raporlar.
+     * Yön, kablo takılı ve durum CHARGING iken belirgin akımla (>100 mA) öğrenilir;
+     * ayrıca kablo yokken (kesin deşarj) da öğrenilir. Sonuç kalıcı olarak saklanır.
+     */
+    private int normalizeSign(int ma, boolean plugged) {
+        int abs = Math.abs(ma);
+        if (abs > 100) {
+            int votes = sp.getInt("signVotes", 0);   // >0: cihaz şarjı + raporluyor
+            int vote = 0;
+            if (plugged && status == BatteryManager.BATTERY_STATUS_CHARGING) {
+                vote = ma > 0 ? 1 : -1;
+            } else if (!plugged) {
+                vote = ma < 0 ? 1 : -1;              // deşarjda işaret tersidir
+            }
+            if (vote != 0) {
+                int nv = Math.max(-50, Math.min(50, votes + vote));
+                if (nv != votes) sp.edit().putInt("signVotes", nv).apply();
+            }
+        }
+        int votes = sp.getInt("signVotes", 0);
+        if (votes >= 3) return ma;
+        if (votes <= -3) return -ma;
+        // Henüz öğrenilmedi: duruma göre tahmin et
+        boolean chargingNow = plugged && (status == BatteryManager.BATTERY_STATUS_CHARGING
+                || status == BatteryManager.BATTERY_STATUS_FULL);
+        return chargingNow ? abs : -abs;
+    }
+
+    /** Ekranda gösterilecek durum metni. */
+    public String stateLabel() {
+        if (plugged == 0) return "Deşarj";
+        int ma = smoothMa;
+        if (ma < -20) return "Adaptör yetmiyor (batarya boşalıyor)";
+        if (level >= 100 || status == BatteryManager.BATTERY_STATUS_FULL) {
+            return ma > 50 ? "Tepe şarjı (son dolum)" : "Tamamen dolu";
+        }
+        if (status == BatteryManager.BATTERY_STATUS_NOT_CHARGING) return "Şarj durduruldu";
+        return "Şarj oluyor";
     }
 
     /** Birim: 0=otomatik, 1=µA, 2=mA */
@@ -291,8 +331,8 @@ public class ChargeService extends Service {
         String title = String.format(Locale.getDefault(), "%+d mA  •  %.1f W", smoothMa, w);
         String text;
         if (sessionActive) {
-            text = String.format(Locale.getDefault(), "%%%d  •  %.1f°C  •  ort %d mA  •  +%.0f mAh",
-                    level, tempDeciC / 10f, sessionAvgMa(), sessionMah);
+            text = String.format(Locale.getDefault(), "%s  •  %%%d  •  %.1f°C  •  +%.0f mAh",
+                    stateLabel(), level, tempDeciC / 10f, sessionMah);
         } else {
             text = String.format(Locale.getDefault(), "%%%d  •  %.1f°C  •  şarjda değil",
                     level, tempDeciC / 10f);

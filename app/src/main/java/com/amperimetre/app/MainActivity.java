@@ -159,7 +159,7 @@ public class MainActivity extends Activity {
         int ma = s.smoothMa;
         tvCurrent.setText(String.format(Locale.getDefault(), "%+d mA", ma));
         tvCurrent.setTextColor(ma >= 0 ? GREEN : RED);
-        tvState.setText(statusText(s.status) + "  •  " + plugText(s.plugged));
+        tvState.setText(s.stateLabel() + "  •  " + plugText(s.plugged));
 
         double w = ma * s.voltageMv / 1_000_000.0;
         StringBuilder live = new StringBuilder();
