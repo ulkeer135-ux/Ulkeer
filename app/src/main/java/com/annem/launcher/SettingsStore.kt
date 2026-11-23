@@ -36,6 +36,35 @@ class SettingsStore(context: Context) {
         prefs.edit().putString(KEY_GREETING, greetingName).apply()
     }
 
+    /** Annem içinde favorilere eklenen kişiler (rehberdeki yıldızlılara ek olarak). */
+    var contactFavorites by mutableStateOf(readFavorites())
+        private set
+
+    /** Kişilere Annem içinde verilen görünen adlar ("Oğlum", "Gelinim"…); rehber değişmez. */
+    var contactLabels by mutableStateOf(readLabels())
+        private set
+
+    fun updateContact(id: Long, label: String, favorite: Boolean) {
+        contactFavorites = if (favorite) contactFavorites + id else contactFavorites - id
+        contactLabels = if (label.isBlank()) contactLabels - id else contactLabels + (id to label.trim())
+        val labelsJson = org.json.JSONObject()
+        contactLabels.forEach { (k, v) -> labelsJson.put(k.toString(), v) }
+        prefs.edit()
+            .putString(KEY_FAVORITES, contactFavorites.joinToString(","))
+            .putString(KEY_LABELS, labelsJson.toString())
+            .apply()
+    }
+
+    private fun readFavorites(): Set<Long> =
+        prefs.getString(KEY_FAVORITES, "").orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+
+    private fun readLabels(): Map<Long, String> = try {
+        val json = org.json.JSONObject(prefs.getString(KEY_LABELS, "{}") ?: "{}")
+        json.keys().asSequence().mapNotNull { k -> k.toLongOrNull()?.let { it to json.getString(k) } }.toMap()
+    } catch (e: Exception) {
+        emptyMap()
+    }
+
     /** Ana ekrandaki kutu sayısı: 9 (3×3) ya da 6 (2×3, daha büyük kutular). */
     var tileCount by mutableStateOf(if (prefs.getInt(KEY_TILES, 9) == 6) 6 else 9)
         private set
@@ -149,6 +178,8 @@ class SettingsStore(context: Context) {
         const val KEY_GREETING = "greeting_name"
         const val KEY_BADGES = "badges_enabled"
         const val KEY_TILES = "tile_count"
+        const val KEY_FAVORITES = "contact_favorites"
+        const val KEY_LABELS = "contact_labels"
         const val DEFAULT_LAT = 41.0082
         const val DEFAULT_LON = 28.9784
 

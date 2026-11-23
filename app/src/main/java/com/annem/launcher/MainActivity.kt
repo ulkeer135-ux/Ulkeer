@@ -91,7 +91,7 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
                 onOpenSettings = { screen = Screen.Settings },
                 onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
             )
-            Screen.Contacts -> ContactsScreen(onBack = { screen = Screen.Home })
+            Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(
                 store = store,
                 onBack = { screen = Screen.Home },

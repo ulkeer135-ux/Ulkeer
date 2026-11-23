@@ -20,6 +20,8 @@ data class PhoneContact(
     val number: String,
     val photoUri: String?,
     val starred: Boolean,
+    /** Büyük (tam boy) fotoğraf; favori kartlarında kullanılır. */
+    val fullPhotoUri: String? = null,
 )
 
 /** Kişileri doğrudan telefonun rehberinden okur; uygulamada ayrıca kişi tutulmaz. */
@@ -38,6 +40,7 @@ object PhoneContacts {
             ContactsContract.CommonDataKinds.Phone.NUMBER,
             ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
             ContactsContract.CommonDataKinds.Phone.STARRED,
+            ContactsContract.CommonDataKinds.Phone.PHOTO_URI,
         )
         val byId = LinkedHashMap<Long, PhoneContact>()
         try {
@@ -62,6 +65,7 @@ object PhoneContacts {
                         number = number,
                         photoUri = c.getString(3),
                         starred = c.getInt(4) == 1,
+                        fullPhotoUri = c.getString(5),
                     )
                 }
             }
