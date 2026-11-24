@@ -364,6 +364,16 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
         if (!lockEnabled) {
             Hint("Önce yukarıdaki \"Ekranı Kapat\" bölümünden Yol 1'i aç.")
         }
+        if (lockEnabled) {
+            val connected = remember(lifecycleState) { LockService.isConnected }
+            val keys = remember(lifecycleState) { LockService.canFilterKeys }
+            val count = remember(lifecycleState) { LockService.homeKeyCount(context) }
+            Hint(
+                "Kontrol: servis ${if (connected) "çalışıyor" else "çalışmıyor"} · " +
+                    "tuş yetkisi ${if (keys) "var" else "yok"} · " +
+                    "yakalanan ana ekran tuşu: $count"
+            )
+        }
         OutlinedButton(onClick = { store.updateFastHome(!store.fastHome) }) {
             Text(if (store.fastHome) "Hızlı ana ekranı kapat" else "Hızlı ana ekranı aç", fontSize = 18.sp)
         }

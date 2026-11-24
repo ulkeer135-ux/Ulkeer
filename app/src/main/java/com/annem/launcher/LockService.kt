@@ -45,6 +45,10 @@ class LockService : AccessibilityService() {
         if (!getSharedPreferences("annem", MODE_PRIVATE).getBoolean("fast_home", true)) return false
         // Kilit ekranındayken telefonun kendi davranışı kalsın.
         if (getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) return false
+        if (event.action == KeyEvent.ACTION_UP) {
+            val prefs = getSharedPreferences("annem", MODE_PRIVATE)
+            prefs.edit().putInt("home_key_count", prefs.getInt("home_key_count", 0) + 1).apply()
+        }
         if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
             // Annem zaten ekrandaysa yeniden başlatma: yalnızca ana sayfaya dön.
             if (MainActivity.showHomeIfVisible()) return true
@@ -78,6 +82,21 @@ class LockService : AccessibilityService() {
             val service = instance ?: return false
             return service.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
         }
+
+        /** Servis şu an bağlı mı (telefon çalıştırıyor mu)? */
+        val isConnected: Boolean get() = instance != null
+
+        /** Telefon bu servise tuş olaylarını iletiyor mu (tuş yakalama yetkisi verilmiş mi)? */
+        val canFilterKeys: Boolean
+            get() {
+                val info = instance?.serviceInfo ?: return false
+                val flagOn = info.flags and android.accessibilityservice.AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS != 0
+                val capOn = info.capabilities and android.accessibilityservice.AccessibilityServiceInfo.CAPABILITY_CAN_REQUEST_FILTER_KEY_EVENTS != 0
+                return flagOn && capOn
+            }
+
+        fun homeKeyCount(context: Context): Int =
+            context.getSharedPreferences("annem", Context.MODE_PRIVATE).getInt("home_key_count", 0)
 
         /** Servis Erişilebilirlik ayarlarında açılmış mı? */
         fun isEnabled(context: Context): Boolean {
