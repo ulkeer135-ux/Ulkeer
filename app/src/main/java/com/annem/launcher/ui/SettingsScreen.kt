@@ -356,6 +356,19 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
 
         Spacer(Modifier.height(12.dp))
         Hint(
+            "Hızlı ana ekran tuşu: ana ekran tuşuna basınca Annem, telefonun 1 saniyelik geçişini " +
+                "beklemeden hemen açılır. \"Ekranı Kapat\" Yol 1 (Erişilebilirlik) açık olmalı. " +
+                "Açıkken ana ekran tuşuna uzun basma (Google Asistan) çalışmaz."
+        )
+        StatusRow("Hızlı ana ekran tuşu", store.fastHome && lockEnabled, onText = "Açık", offText = "Kapalı")
+        if (!lockEnabled) {
+            Hint("Önce yukarıdaki \"Ekranı Kapat\" bölümünden Yol 1'i aç.")
+        }
+        OutlinedButton(onClick = { store.updateFastHome(!store.fastHome) }) {
+            Text(if (store.fastHome) "Hızlı ana ekranı kapat" else "Hızlı ana ekranı aç", fontSize = 18.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+        Hint(
             "Ana ekran tuşunda telefon bir an duvar kağıdını gösteriyor (telefonun kendi geçiş " +
                 "animasyonu). Duvar kağıdını Annem'in zeminiyle aynı yaparsan bu an fark edilmez. " +
                 "Kilit ekranı değişmez."

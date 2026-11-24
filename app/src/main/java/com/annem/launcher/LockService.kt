@@ -5,12 +5,19 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.app.ActivityOptions
+import android.app.KeyguardManager
 import android.provider.Settings
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
 /**
- * Yalnızca "Ekranı Kapat" düğmesi için var: güç tuşuna kısa basmakla aynı şeyi yapar
- * (GLOBAL_ACTION_LOCK_SCREEN). Ekran içeriğini okumaz, hiçbir olayı işlemez.
+ * İki iş yapar:
+ *  1. "Ekranı Kapat" düğmesi: güç tuşuna kısa basmakla aynı şeyi yapar (GLOBAL_ACTION_LOCK_SCREEN).
+ *  2. Hızlı ana ekran tuşu: OPPO/ColorOS, ana ekran tuşunda üçüncü taraf ana ekranlara geçmeden
+ *     önce ~1 sn duvar kağıdı gösteren kendi animasyonunu oynatıyor. Servis yalnızca ANA EKRAN
+ *     tuşunu karşılar ve Annem'i doğrudan, animasyonsuz öne getirir (geri tuşundaki kadar hızlı).
+ *     Diğer tüm tuşlar dokunulmadan geçer. Ekran içeriğini okumaz.
  *
  * Cihaz yöneticisi (DevicePolicyManager.lockNow) yerine bu yol seçildi: lockNow sonrası
  * Android bir sonraki açılışta parmak izi yerine PIN ister; bu yöntem istemez.
@@ -32,6 +39,25 @@ class LockService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
+        if (!getSharedPreferences("annem", MODE_PRIVATE).getBoolean(SettingsStore.KEY_FAST_HOME, true)) return false
+        // Kilit ekranındayken telefonun kendi davranışı kalsın.
+        if (getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) return false
+        if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+            try {
+                val intent = Intent(this, MainActivity::class.java)
+                    .setAction(Intent.ACTION_MAIN)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                startActivity(intent, ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle())
+            } catch (_: Throwable) {
+                // Olmazsa telefonun kendi ana ekran eylemi.
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }
+        }
+        return true
+    }
 
     override fun onInterrupt() = Unit
 
