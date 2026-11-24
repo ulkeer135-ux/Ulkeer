@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        focused = hasFocus
         if (hasFocus) hideStatusBar()
     }
 
@@ -93,6 +94,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         if (visible === this) visible = null
+        focused = false
         super.onPause()
     }
 
@@ -105,8 +107,19 @@ class MainActivity : ComponentActivity() {
         @Volatile
         private var visible: MainActivity? = null
 
-        /** Annem ön plandaysa ana sayfaya döndürür ve true verir (hızlı ana ekran tuşu için). */
+        @Volatile
+        private var focused = false
+
+        /**
+         * Annem gerçekten önde mi: hem açık (resumed) hem de dokunmalar ona gidiyor (odak).
+         * ColorOS'un küçük pencere / bölünmüş ekran modunda Annem açık kalıp başka uygulama
+         * odakta olabilir; o durumda "önde" sayılmaz.
+         */
+        val isInFront: Boolean get() = visible != null && focused
+
+        /** Annem öndeyse ana sayfaya döndürür ve true verir (hızlı ana ekran tuşu için). */
         fun showHomeIfVisible(): Boolean {
+            if (!isInFront) return false
             val activity = visible ?: return false
             activity.runOnUiThread { activity.homeSignal.intValue++ }
             return true

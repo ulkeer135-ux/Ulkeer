@@ -368,10 +368,11 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             val connected = remember(lifecycleState) { LockService.isConnected }
             val keys = remember(lifecycleState) { LockService.canFilterKeys }
             val count = remember(lifecycleState) { LockService.homeKeyCount(context) }
+            val fallbacks = remember(lifecycleState) { LockService.homeFallbackCount(context) }
             Hint(
                 "Kontrol: servis ${if (connected) "çalışıyor" else "çalışmıyor"} · " +
                     "tuş yetkisi ${if (keys) "var" else "yok"} · " +
-                    "yakalanan ana ekran tuşu: $count"
+                    "yakalanan ana ekran tuşu: $count · yedek yol: $fallbacks"
             )
         }
         OutlinedButton(onClick = { store.updateFastHome(!store.fastHome) }) {

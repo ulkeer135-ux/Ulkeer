@@ -60,12 +60,23 @@ class LockService : AccessibilityService() {
                     .setClass(this, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 startActivity(intent, ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle())
+                // Bazı uygulamalarda telefon bu açılışı sessizce engelleyebiliyor. Kısa süre
+                // sonra Annem önde değilse telefonun kendi ana ekran eylemi yapılır:
+                // tek basış her zaman ana ekrana döndürür.
+                android.os.Handler(mainLooper).postDelayed({
+                    if (!MainActivity.isInFront) fallbackHome()
+                }, 700)
             } catch (_: Throwable) {
-                // Olmazsa telefonun kendi ana ekran eylemi.
-                performGlobalAction(GLOBAL_ACTION_HOME)
+                fallbackHome()
             }
         }
         return true
+    }
+
+    private fun fallbackHome() {
+        val prefs = getSharedPreferences("annem", MODE_PRIVATE)
+        prefs.edit().putInt("home_fallback_count", prefs.getInt("home_fallback_count", 0) + 1).apply()
+        performGlobalAction(GLOBAL_ACTION_HOME)
     }
 
     override fun onInterrupt() = Unit
@@ -94,6 +105,9 @@ class LockService : AccessibilityService() {
                 val capOn = info.capabilities and android.accessibilityservice.AccessibilityServiceInfo.CAPABILITY_CAN_REQUEST_FILTER_KEY_EVENTS != 0
                 return flagOn && capOn
             }
+
+        fun homeFallbackCount(context: Context): Int =
+            context.getSharedPreferences("annem", Context.MODE_PRIVATE).getInt("home_fallback_count", 0)
 
         fun homeKeyCount(context: Context): Int =
             context.getSharedPreferences("annem", Context.MODE_PRIVATE).getInt("home_key_count", 0)
