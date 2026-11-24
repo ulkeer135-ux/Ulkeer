@@ -23,6 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.annem.launcher.ui.AnnemTheme
 import com.annem.launcher.ui.AppPickerScreen
 import com.annem.launcher.ui.ContactsScreen
@@ -51,6 +54,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         StartupStats.onActivityCreated(this)
 
+        hideStatusBar()
         val store = SettingsStore(applicationContext)
 
         setContent {
@@ -58,6 +62,22 @@ class MainActivity : ComponentActivity() {
                 AnnemApp(store = store, homeSignal = homeSignal.intValue)
             }
         }
+    }
+
+    /**
+     * Telefonun üstteki küçük çubuğu (saat, pil, sinyal) gizlenir: Annem zaten büyük saati ve
+     * pili gösteriyor. Yukarıdan aşağı kaydırınca çubuk bir süre görünür, bildirimler yine açılır.
+     */
+    private fun hideStatusBar() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.statusBars())
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideStatusBar()
     }
 
     override fun onRestart() {
