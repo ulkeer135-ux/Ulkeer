@@ -42,7 +42,7 @@ class LockService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
-        if (!getSharedPreferences("annem", MODE_PRIVATE).getBoolean(SettingsStore.KEY_FAST_HOME, true)) return false
+        if (!getSharedPreferences("annem", MODE_PRIVATE).getBoolean("fast_home", true)) return false
         // Kilit ekranındayken telefonun kendi davranışı kalsın.
         if (getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) return false
         if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
