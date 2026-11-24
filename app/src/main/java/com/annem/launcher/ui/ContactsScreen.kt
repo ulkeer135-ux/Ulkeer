@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -248,6 +249,8 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
                                             realName = if (labels.containsKey(c.id)) c.name else null,
                                             editMode = editMode,
                                             onEdit = { editing = c },
+                                            // Yan yana iki kart aynı boyda kalsın.
+                                            reserveVideoSpace = row.any { it.whatsappVideo != null },
                                             modifier = Modifier.weight(1f),
                                         )
                                     }
@@ -342,6 +345,33 @@ private fun CallButtonWide(contact: PhoneContact, modifier: Modifier) {
     }
 }
 
+/** WhatsApp görüntülü arama rengi (WhatsApp'ın koyu yeşili; "Ara"dan ayırt edilsin). */
+private val VideoTeal = Color(0xFF0B7A6E)
+
+@Composable
+private fun VideoButtonWide(contact: PhoneContact, modifier: Modifier, label: String = "Görüntülü") {
+    val video = contact.whatsappVideo ?: return
+    val context = LocalContext.current
+    Button(
+        onClick = { Actions.whatsappVideoCall(context, video) },
+        modifier = modifier.height(60.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = VideoTeal, contentColor = Color.White),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+    ) {
+        Icon(Icons.Rounded.Videocam, contentDescription = null, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(8.dp))
+        FitText(
+            text = label,
+            maxSp = 22f,
+            minSp = 14f,
+            fontWeight = FontWeight.Black,
+            color = Color.White,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+    }
+}
+
 @Composable
 private fun FavoriteCard(
     store: SettingsStore,
@@ -350,6 +380,7 @@ private fun FavoriteCard(
     realName: String?,
     editMode: Boolean,
     onEdit: () -> Unit,
+    reserveVideoSpace: Boolean,
     modifier: Modifier,
 ) {
     Surface(
@@ -386,6 +417,11 @@ private fun FavoriteCard(
                     }
                 }
                 CallButtonWide(contact, Modifier.fillMaxWidth())
+                if (contact.whatsappVideo != null) {
+                    VideoButtonWide(contact, Modifier.fillMaxWidth())
+                } else if (reserveVideoSpace) {
+                    Spacer(Modifier.height(60.dp))
+                }
             }
             if (editMode) StarToggle(store, contact, Modifier.align(Alignment.TopEnd))
         }
@@ -433,7 +469,12 @@ private fun WideFavoriteCard(
                 }
                 if (editMode) StarToggle(store, contact)
             }
-            CallButtonWide(contact, Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CallButtonWide(contact, Modifier.weight(1f))
+                if (contact.whatsappVideo != null) {
+                    VideoButtonWide(contact, Modifier.weight(1f), label = "Görüntülü ara")
+                }
+            }
         }
     }
 }
@@ -481,6 +522,19 @@ private fun ContactRow(
             if (editMode) {
                 StarToggle(store, contact)
             } else {
+                val video = contact.whatsappVideo
+                if (video != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = { Actions.whatsappVideoCall(context, video) },
+                        modifier = Modifier.size(64.dp).semantics { contentDescription = "$title görüntülü ara" },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = VideoTeal, contentColor = Color.White),
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Icon(Icons.Rounded.Videocam, contentDescription = null, modifier = Modifier.size(32.dp))
+                    }
+                }
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = { Actions.call(context, contact.number) },

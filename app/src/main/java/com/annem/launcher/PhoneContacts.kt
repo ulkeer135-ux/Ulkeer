@@ -22,10 +22,18 @@ data class PhoneContact(
     val starred: Boolean,
     /** Büyük (tam boy) fotoğraf; favori kartlarında kullanılır. */
     val fullPhotoUri: String? = null,
+    /** WhatsApp'ın rehbere eklediği "görüntülü arama" satırı (yoksa null). */
+    val whatsappVideo: WhatsAppVideo? = null,
 )
+
+/** Rehberdeki WhatsApp görüntülü arama satırı: Data tablosundaki kimlik ve türü. */
+data class WhatsAppVideo(val dataId: Long, val mimeType: String)
 
 /** Kişileri doğrudan telefonun rehberinden okur; uygulamada ayrıca kişi tutulmaz. */
 object PhoneContacts {
+
+    const val WHATSAPP_VIDEO_MIME = "vnd.android.cursor.item/vnd.com.whatsapp.video.call"
+    const val WHATSAPP_BUSINESS_VIDEO_MIME = "vnd.android.cursor.item/vnd.com.whatsapp.w4b.video.call"
 
     fun hasPermission(context: Context): Boolean =
         context.checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
@@ -71,6 +79,28 @@ object PhoneContacts {
             }
         } catch (e: Exception) {
             return@withContext emptyList()
+        }
+        // WhatsApp, kayıtlı her WhatsApp kullanıcısı için rehbere "görüntülü arama" satırı ekler.
+        try {
+            context.contentResolver.query(
+                ContactsContract.Data.CONTENT_URI,
+                arrayOf(ContactsContract.Data.CONTACT_ID, ContactsContract.Data._ID, ContactsContract.Data.MIMETYPE),
+                "${ContactsContract.Data.MIMETYPE} IN (?, ?)",
+                arrayOf(WHATSAPP_VIDEO_MIME, WHATSAPP_BUSINESS_VIDEO_MIME),
+                null,
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val id = c.getLong(0)
+                    val contact = byId[id] ?: continue
+                    val mime = c.getString(2) ?: continue
+                    // Normal WhatsApp, WhatsApp Business'a tercih edilir.
+                    if (contact.whatsappVideo == null || mime == WHATSAPP_VIDEO_MIME) {
+                        byId[id] = contact.copy(whatsappVideo = WhatsAppVideo(c.getLong(1), mime))
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // WhatsApp yoksa ya da okunamazsa görüntülü arama düğmesi görünmez.
         }
         val collator = Collator.getInstance(Locale.forLanguageTag("tr-TR"))
         byId.values.sortedWith(

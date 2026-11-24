@@ -65,6 +65,18 @@ object Actions {
         if (!start(context, intent)) toast(context, "Hava durumu sayfası açılamadı")
     }
 
+    /** Kişiyle WhatsApp görüntülü araması başlatır (rehberdeki WhatsApp satırı üzerinden). */
+    fun whatsappVideoCall(context: Context, video: WhatsAppVideo) {
+        val pkg = if (video.mimeType == PhoneContacts.WHATSAPP_BUSINESS_VIDEO_MIME) WHATSAPP_BUSINESS else WHATSAPP
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(
+                android.content.ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, video.dataId),
+                video.mimeType,
+            )
+            .setPackage(pkg)
+        if (!start(context, intent)) toast(context, "WhatsApp görüntülü arama başlatılamadı")
+    }
+
     private fun start(context: Context, intent: Intent): Boolean = try {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true
