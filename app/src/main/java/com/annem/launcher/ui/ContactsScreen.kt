@@ -53,6 +53,18 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -116,6 +128,8 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
     }
     var editMode by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PhoneContact?>(null) }
+    var query by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
 
     // Fotoğraf seçici: seçilen fotoğraf düzenlenen kişiye kaydedilir.
     var photoTarget by remember { mutableStateOf<Long?>(null) }
@@ -140,6 +154,8 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Klavye açılınca liste klavyenin üstünde kalsın.
+            .imePadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -153,6 +169,36 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
                 .padding(horizontal = 4.dp)
                 .holdFor(3_000L, "title") { editMode = true },
         )
+
+        if (granted && !contacts.isNullOrEmpty()) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Ink),
+                placeholder = { Text("İsim yazarak bul", fontSize = 20.sp, color = Palette.InkSoft) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(30.dp)) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = ""; focusManager.clearFocus() }) {
+                            Icon(Icons.Rounded.Close, contentDescription = "Temizle", modifier = Modifier.size(28.dp))
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(18.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Palette.Green,
+                    unfocusedBorderColor = Palette.CardBorder,
+                    focusedLeadingIconColor = Palette.Green,
+                    unfocusedLeadingIconColor = Palette.InkSoft,
+                ),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            )
+        }
 
         if (editMode) {
             Surface(
@@ -201,6 +247,38 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
             }
             list == null -> Message("Yükleniyor…")
             list.isEmpty() -> Message("Rehberde telefon numarası olan kişi yok.")
+            query.isNotBlank() -> {
+                val needle = searchKey(query)
+                val digits = query.filter { it.isDigit() }
+                val found = list
+                    .filter { c ->
+                        searchKey(displayName(c)).contains(needle) ||
+                            searchKey(c.name).contains(needle) ||
+                            (digits.length >= 3 && c.number.filter { it.isDigit() }.contains(digits))
+                    }
+                    .sortedByDescending { isFavorite(it) }
+                if (found.isEmpty()) {
+                    Message("\"${query.trim()}\" adında kişi bulunamadı.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                    ) {
+                        item(key = "h-found") { SectionHeader("Bulunanlar") }
+                        items(found, key = { "s${it.id}" }) { c ->
+                            ContactRow(
+                                store = store,
+                                contact = c,
+                                title = displayName(c),
+                                realName = if (labels.containsKey(c.id)) c.name else null,
+                                editMode = editMode,
+                                onEdit = { editing = c },
+                            )
+                        }
+                    }
+                }
+            }
             else -> {
                 val collator = remember { Collator.getInstance(TR) }
                 val favorites = list
@@ -649,4 +727,20 @@ private fun ContactAvatar(store: SettingsStore, contact: PhoneContact, size: Dp,
             )
         }
     }
+}
+
+/** Aramada Türkçe harf ve büyük/küçük farkını yok sayar: "ÇİÇEK", "cicek" ve "Çiçek" aynı. */
+private fun searchKey(text: String): String {
+    val lower = text.trim().lowercase(Locale.forLanguageTag("tr-TR"))
+    val sb = StringBuilder(lower.length)
+    for (ch in lower) {
+        sb.append(
+            when (ch) {
+                'ç' -> 'c'; 'ğ' -> 'g'; 'ı' -> 'i'; 'ö' -> 'o'; 'ş' -> 's'; 'ü' -> 'u'
+                'â' -> 'a'; 'î' -> 'i'; 'û' -> 'u'; '\u0307' -> continue
+                else -> ch
+            }
+        )
+    }
+    return sb.toString()
 }
