@@ -87,7 +87,30 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        visible = this
         BadgeService.ensureConnected(this)
+    }
+
+    override fun onPause() {
+        if (visible === this) visible = null
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        if (visible === this) visible = null
+        super.onDestroy()
+    }
+
+    companion object {
+        @Volatile
+        private var visible: MainActivity? = null
+
+        /** Annem ön plandaysa ana sayfaya döndürür ve true verir (hızlı ana ekran tuşu için). */
+        fun showHomeIfVisible(): Boolean {
+            val activity = visible ?: return false
+            activity.runOnUiThread { activity.homeSignal.intValue++ }
+            return true
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

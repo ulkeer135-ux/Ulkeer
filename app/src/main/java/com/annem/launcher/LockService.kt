@@ -46,9 +46,14 @@ class LockService : AccessibilityService() {
         // Kilit ekranındayken telefonun kendi davranışı kalsın.
         if (getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) return false
         if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+            // Annem zaten ekrandaysa yeniden başlatma: yalnızca ana sayfaya dön.
+            if (MainActivity.showHomeIfVisible()) return true
             try {
-                val intent = Intent(this, MainActivity::class.java)
-                    .setAction(Intent.ACTION_MAIN)
+                // HOME kategorisi şart: yoksa Android bunu sıradan bir açılış sayıp
+                // Annem'in ikinci bir kopyasını oluşturuyordu (bir an kaybolup açılma).
+                val intent = Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_HOME)
+                    .setClass(this, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 startActivity(intent, ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle())
             } catch (_: Throwable) {
