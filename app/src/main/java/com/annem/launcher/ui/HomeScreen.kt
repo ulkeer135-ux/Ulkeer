@@ -155,7 +155,6 @@ fun HomeScreen(
                     badge = if (showBadges) Badges.missedCalls else 0,
                     badgeWord = "cevapsız arama",
                     compact = nine,
-                    cuteIcon = { mod -> CutePhoneIcon(Palette.PhoneIcon, mod) },
                 ) {
                     Actions.openDialer(context)
                 }
@@ -166,7 +165,6 @@ fun HomeScreen(
                     badge = if (showBadges) Badges.whatsapp else 0,
                     badgeWord = "okunmamış mesaj",
                     compact = nine,
-                    cuteIcon = { mod -> CuteChatIcon(Palette.WaIcon, mod) },
                 ) {
                     Actions.openWhatsApp(context)
                 }
