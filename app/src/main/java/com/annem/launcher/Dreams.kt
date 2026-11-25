@@ -128,13 +128,11 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
         dream: String,
         onPartial: (String) -> Unit = {},
     ): DreamResult = withContext(Dispatchers.IO) {
-        // Sıra: Claude (ücretli, en iyi) → Groq (ücretsiz, çok hızlı) → Gemini (ücretsiz).
+        // Yorumu yalnızca Groq yapar (hızlı, ücretsiz). Gemini anahtarı artık yalnızca doğal ses için.
         val services = buildList<suspend () -> DreamResult> {
-            if (claudeKey.isNotBlank()) add { ClaudeDreams.interpret(claudeKey.trim(), PROMPT, dream, onPartial) }
             if (groqKey.isNotBlank()) add { GroqDreams.interpret(groqKey.trim(), PROMPT, dream) }
-            if (geminiKey.isNotBlank()) add { gemini(geminiKey.trim(), dream, onPartial) }
         }
-        if (services.isEmpty()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da anahtar girilmeli.", false)
+        if (services.isEmpty()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da Groq anahtarı girilmeli.", false)
         trace.clear()
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         for (service in services) {
@@ -274,7 +272,7 @@ class DreamStore(context: Context) {
         prefs.edit().putString("groq_key", key.trim()).apply()
     }
 
-    val ready: Boolean get() = apiKey.value.isNotBlank() || claudeKey.value.isNotBlank() || groqKey.value.isNotBlank()
+    val ready: Boolean get() = groqKey.value.isNotBlank()
     val history = mutableStateListOf<DreamEntry>().apply { addAll(loadHistory()) }
 
     /** Yorumu Gemini'nin doğal sesiyle oku (kapalıysa telefonun sesi). */

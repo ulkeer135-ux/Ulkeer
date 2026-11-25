@@ -262,7 +262,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
         if (!store.ready) {
             InfoCard(
                 "Rüya yorumu henüz kurulmadı. Yakınınız saate 3 saniye basılı tutup Ayarlar › " +
-                    "\"Rüya Tabirleri\" bölümünden ücretsiz anahtarı girmeli."
+                    "\"Rüya Tabirleri\" bölümünden ücretsiz Groq anahtarını girmeli."
             )
             return@Column
         }
