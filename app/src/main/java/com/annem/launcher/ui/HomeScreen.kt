@@ -190,12 +190,16 @@ fun HomeScreen(
             }
         }
 
-        MoreHandle(onOpen = { moreOpen = true })
-
-        LockButton(onClick = {
-            val result = ScreenLock.lock(context)
-            if (result != LockResult.LOCKED) lockProblem = result
-        })
+        // Ekranı Kapat ve yanında küçük "Daha fazla" düğmesi: aynı satır, dikeyde yer kaplamaz.
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                LockButton(onClick = {
+                    val result = ScreenLock.lock(context)
+                    if (result != LockResult.LOCKED) lockProblem = result
+                })
+            }
+            MoreButton(onOpen = { moreOpen = true })
+        }
     }
     }
 
@@ -534,29 +538,28 @@ private fun LockButton(onClick: () -> Unit) {
     }
 }
 
-/** Ekranı Kapat'ın üstündeki küçük tutamaç: dokun ya da yukarı kaydır → "Daha fazla" çekmecesi. */
+/** Ekranı Kapat'ın sağındaki küçük kare düğme: dokun ya da yukarı kaydır → "Daha fazla" çekmecesi. */
 @Composable
-private fun MoreHandle(onOpen: () -> Unit) {
+private fun MoreButton(onOpen: () -> Unit) {
     Surface(
         onClick = onOpen,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(26.dp),
         color = Color.White,
-        border = BorderStroke(1.5.dp, Palette.EmptyLine),
+        border = BorderStroke(2.dp, Palette.EmptyLine),
         modifier = Modifier
-            .fillMaxWidth()
-            .height(46.dp)
+            .size(width = 92.dp, height = 74.dp)
+            .semantics { contentDescription = "Daha fazla uygulama" }
             .pointerInput(Unit) {
                 var total = 0f
                 detectVerticalDragGestures(
                     onDragStart = { _ -> total = 0f },
-                    onVerticalDrag = { _, dy: Float -> total += dy; if (total < -40f) { total = 0f; onOpen() } },
+                    onVerticalDrag = { _, dy: Float -> total += dy; if (total < -30f) { total = 0f; onOpen() } },
                 )
             },
     ) {
-        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Daha fazla", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft)
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(Icons.Rounded.Apps, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(30.dp))
+            Text("Daha fazla", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft, maxLines = 1)
         }
     }
 }
