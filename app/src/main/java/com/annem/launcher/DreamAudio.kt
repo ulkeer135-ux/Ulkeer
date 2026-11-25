@@ -10,7 +10,9 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -177,40 +179,51 @@ class DreamPlayer(
     private var job: Job? = null
     private var player: MediaPlayer? = null
     // v2: eski sürümün sesleri talimatı da okuyordu; o klasör silinir.
-    private val dir = File(app.filesDir, "dream_audio_v2").apply {
+    // v3: parçalama değişti; eski parçalı sesler artık eşleşmez, silinir.
+    private val dir = File(app.filesDir, "dream_audio_v3").apply {
         File(app.filesDir, "dream_audio").deleteRecursively()
+        File(app.filesDir, "dream_audio_v2").deleteRecursively()
         mkdirs()
     }
 
     fun speak(text: String, key: Long) {
         stop()
         if (!natural()) { device.speak(text); return }
-        val parts = splitTwo(text)
+        val chunks = splitChunks(text)
         job = scope.launch {
             onState(true, true)
-            // İkinci parça, birinci çalarken hazırlansın.
-            val firstFile = File(dir, "${key}_0.wav")
-            val secondFile = File(dir, "${key}_1.wav")
-            val second = if (parts.size > 1) async { cachedOrSynth(secondFile, parts[1]) } else null
-            // Doğal ses 8 sn içinde hazır değilse beklemeden telefonun sesiyle oku.
-            // (Arkadaki istek sürer; ses gelirse saklanır, tekrar dinlerken kullanılır.)
-            val firstJob = async { cachedOrSynth(firstFile, parts[0]) }
-            val first = withTimeoutOrNull(FIRST_WAIT_MS) { firstJob.await() }
-            if (first == null) {
-                second?.cancel()
-                onState(false, false)
-                device.speak(text)
-                return@launch
-            }
-            onState(true, false)
-            play(first)
-            if (second != null) {
-                val f = withTimeoutOrNull(SECOND_WAIT_MS) { second.await() }
-                if (f != null) play(f) else device.speakAndWait(parts[1])
+            // Parça parça: biri çalarken sıradaki hazırlanır. Bir parça zamanında gelmezse
+            // kalan metin telefonun sesiyle okunur; okuma hiçbir zaman yarıda kalmaz.
+            var next: Deferred<File?>? = async { safeSynth(key, chunks, 0) }
+            for (i in chunks.indices) {
+                val current = next
+                next = if (i + 1 < chunks.size) async { safeSynth(key, chunks, i + 1) } else null
+                val wait = if (i == 0) FIRST_WAIT_MS else NEXT_WAIT_MS
+                val file = withTimeoutOrNull(wait) { current?.await() }
+                if (file == null) {
+                    next?.cancel()
+                    onState(true, false)
+                    device.speakAndWait(chunks.drop(i).joinToString(" "))
+                    break
+                }
+                onState(true, false)
+                if (!play(file)) {
+                    next?.cancel()
+                    device.speakAndWait(chunks.drop(i).joinToString(" "))
+                    break
+                }
             }
             onState(false, false)
             pruneOld()
         }
+    }
+
+    private suspend fun safeSynth(key: Long, chunks: List<String>, i: Int): File? = try {
+        cachedOrSynth(File(dir, "${key}_$i.wav"), chunks[i])
+    } catch (e: CancellationException) {
+        throw e
+    } catch (t: Throwable) {
+        null // bellek ya da ağ hatası: telefonun sesine geçilir
     }
 
     fun stop() {
@@ -229,7 +242,7 @@ class DreamPlayer(
 
     private companion object {
         const val FIRST_WAIT_MS = 8_000L
-        const val SECOND_WAIT_MS = 20_000L
+        const val NEXT_WAIT_MS = 25_000L
     }
 
     private suspend fun cachedOrSynth(file: File, text: String): File? {
@@ -238,7 +251,8 @@ class DreamPlayer(
         return withContext(Dispatchers.IO) { file.writeBytes(wav); file }
     }
 
-    private suspend fun play(file: File) = suspendCancellableCoroutine<Unit> { cont ->
+    /** Çalar; dosya bozuksa false. */
+    private suspend fun play(file: File): Boolean = suspendCancellableCoroutine { cont ->
         val mp = MediaPlayer()
         player = mp
         try {
@@ -247,13 +261,13 @@ class DreamPlayer(
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
             )
             mp.setDataSource(file.absolutePath)
-            mp.setOnCompletionListener { if (cont.isActive) cont.resume(Unit) }
-            mp.setOnErrorListener { _, _, _ -> if (cont.isActive) cont.resume(Unit); true }
+            mp.setOnCompletionListener { if (cont.isActive) cont.resume(true) }
+            mp.setOnErrorListener { _, _, _ -> file.delete(); if (cont.isActive) cont.resume(false); true }
             mp.prepare()
             mp.start()
         } catch (e: Exception) {
             file.delete()
-            if (cont.isActive) cont.resume(Unit)
+            if (cont.isActive) cont.resume(false)
         }
         cont.invokeOnCancellation { main.post { mp.runCatching { stop(); release() } } }
     }
@@ -267,19 +281,25 @@ class DreamPlayer(
     }
 
     /**
-     * İlk 1–2 kısa cümle ayrı (birkaç saniyede hazır olsun, okuma hemen başlasın),
-     * geri kalanı tek parça: ücretsiz günlük hakkı korumak için en fazla 2 istek.
+     * İlk 1–2 kısa cümle (≤160 harf, birkaç saniyede hazır) sonra ~600 harflik parçalar:
+     * her parça ~40 sn ses, bellek dostu; ücretsiz hak için toplam 3–5 istek.
      */
-    private fun splitTwo(text: String): List<String> {
+    private fun splitChunks(text: String): List<String> {
         val sentences = text.trim().split(Regex("(?<=[.!?…])\\s+")).filter { it.isNotBlank() }
-        if (sentences.size < 3) return listOf(text)
-        var first = sentences[0]
-        var i = 1
-        while (i < sentences.size - 1 && first.length + sentences[i].length < 160) {
-            first += " " + sentences[i]
-            i++
+        if (sentences.isEmpty()) return listOf(text)
+        val out = mutableListOf<String>()
+        var cur = ""
+        for (sentence in sentences) {
+            val limit = if (out.isEmpty()) 160 else 600
+            if (cur.isNotEmpty() && cur.length + sentence.length + 1 > limit) {
+                out.add(cur)
+                cur = sentence
+            } else {
+                cur = if (cur.isEmpty()) sentence else "$cur $sentence"
+            }
         }
-        return listOf(first, sentences.drop(i).joinToString(" "))
+        if (cur.isNotEmpty()) out.add(cur)
+        return out
     }
 }
 
@@ -329,7 +349,8 @@ private class DeviceVoice(context: Context, private val onSpeaking: (Boolean) ->
 
     fun speak(text: String) {
         if (!ready) { pending = text; return }
-        tts.stop()
+        // Yalnızca gerçekten konuşuyorsa durdur: durdurma, bekleyen "bitti" haberini erken tetikliyordu.
+        if (tts.isSpeaking) tts.stop()
         val chunks = text.split(Regex("(?<=[.!?…])\\s+")).fold(mutableListOf<String>()) { acc, s ->
             if (acc.isNotEmpty() && acc.last().length + s.length < 400) acc[acc.lastIndex] = acc.last() + " " + s else acc.add(s)
             acc

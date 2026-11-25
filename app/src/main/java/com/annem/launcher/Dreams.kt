@@ -236,6 +236,8 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
     }
 
     fun cleanText(s: String): String = s
+        .replace(Regex("(?m)^\\s*[-•–]\\s+"), "")       // madde işaretleri
+        .replace(Regex("(?m)^\\s*\\d+[.)]\\s+"), "")   // numaralı satırlar
         .replace(Regex("[*#_`>]"), "")
         .replace(Regex("[ \t]+"), " ")
         .replace(Regex("\n{3,}"), "\n\n")
@@ -299,7 +301,7 @@ class DreamStore(context: Context) {
         audioDir().listFiles()?.forEach { it.delete() }
     }
 
-    private fun audioDir() = java.io.File(app.filesDir, "dream_audio_v2")
+    private fun audioDir() = java.io.File(app.filesDir, "dream_audio_v3")
 
     private fun save() {
         val arr = JSONArray()
