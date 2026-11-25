@@ -155,6 +155,7 @@ fun HomeScreen(
                     badge = if (showBadges) Badges.missedCalls else 0,
                     badgeWord = "cevapsız arama",
                     compact = nine,
+                    cuteIcon = { mod -> CutePhoneIcon(Palette.PhoneIcon, mod) },
                 ) {
                     Actions.openDialer(context)
                 }
@@ -165,6 +166,7 @@ fun HomeScreen(
                     badge = if (showBadges) Badges.whatsapp else 0,
                     badgeWord = "okunmamış mesaj",
                     compact = nine,
+                    cuteIcon = { mod -> CuteChatIcon(Palette.WaIcon, mod) },
                 ) {
                     Actions.openWhatsApp(context)
                 }
@@ -414,6 +416,8 @@ private fun Tile(
     badge: Int = 0,
     badgeWord: String = "yeni",
     compact: Boolean = false,
+    /** Kendi çizdiğimiz sevimli simge (varsa düz simgenin yerine). */
+    cuteIcon: (@Composable (Modifier) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -437,6 +441,8 @@ private fun Tile(
                 val iconSize = (maxHeight * 0.62f).coerceIn(28.dp, 56.dp)
                 if (appIcon != null) {
                     Image(bitmap = appIcon, contentDescription = null, modifier = Modifier.size(iconSize))
+                } else if (cuteIcon != null) {
+                    cuteIcon(Modifier.size(iconSize * 1.15f))
                 } else {
                     Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(iconSize))
                 }
