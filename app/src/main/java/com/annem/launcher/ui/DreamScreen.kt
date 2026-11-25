@@ -49,6 +49,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,6 +74,7 @@ import com.annem.launcher.DreamEntry
 import com.annem.launcher.DreamInterpreter
 import com.annem.launcher.DreamResult
 import com.annem.launcher.DreamStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -197,6 +200,24 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
         }
         phase = Phase.Listening
         listener.start()
+    }
+
+    // Ekran kendiliğinden kararmasın: anlatırken, yorum beklenirken, okunurken ve okuma
+    // bittikten sonra 3 dakika (rahatça okusun). Boş beklerken telefonun normal ayarı geçerli.
+    var readingGrace by remember { mutableStateOf(false) }
+    LaunchedEffect(phase, speaking, preparing) {
+        readingGrace = phase is Phase.Answer
+        if (phase is Phase.Answer && !speaking && !preparing) {
+            delay(3 * 60_000L)
+            readingGrace = false
+        }
+    }
+    val keepOn = phase == Phase.Listening || phase == Phase.Finishing || phase == Phase.Thinking ||
+        speaking || preparing || readingGrace
+    val view = LocalView.current
+    DisposableEffect(keepOn) {
+        view.keepScreenOn = keepOn
+        onDispose { view.keepScreenOn = false }
     }
 
     // Ekrandan çıkınca ya da telefon kilitlenince sus ve dinlemeyi bırak.
