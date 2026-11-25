@@ -274,10 +274,14 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
         }
     }
 
+    // Her ekran değişiminde en üste kaydır: mikrofon ve yeni içerik hep görünsün.
+    val scroll = rememberScrollState()
+    LaunchedEffect(phase) { scroll.scrollTo(0) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -410,9 +414,10 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                 }
                 notice?.let { InfoCard(it) }
                 NewDreamButton {
+                    // Tek dokunuşla doğrudan dinlemeye başla.
                     tts.stop()
                     followUpFor = null
-                    phase = Phase.Idle
+                    startListening()
                 }
                 Text(
                     "Rüya yorumları geleneksel tabirlere dayanır; eğlence ve gönül huzuru içindir." +
@@ -440,7 +445,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                         Text("Tekrar dene", fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
-                NewDreamButton { followUpFor = null; phase = Phase.Idle }
+                NewDreamButton { followUpFor = null; startListening() }
             }
         }
     }
@@ -633,7 +638,7 @@ private class DreamListener(
                 SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
                     end("İnternet bağlantısı zayıf, sesiniz anlaşılamadı. Tekrar deneyin.")
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> end("Mikrofon izni gerekiyor.")
-                else -> end(null)
+                else -> end("Mikrofon açılamadı (kod $error). Tekrar deneyin.")
             }
         }
     }
