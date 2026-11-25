@@ -331,7 +331,30 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedButton(onClick = { dreams.updateApiKey(dreamKey) }) { Text("Kaydet", fontSize = 18.sp) }
-        StatusRow("Rüya yorumu", dreams.apiKey.value.isNotBlank(), onText = "Hazır", offText = "Anahtar yok")
+        StatusRow("Rüya yorumu", dreams.ready, onText = "Hazır", offText = "Anahtar yok")
+
+        Spacer(Modifier.height(8.dp))
+        Text("Daha iyi yorum: Claude (isteğe bağlı)", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+        Hint(
+            "Claude anahtarı girilirse yorumu Claude yapar (daha ayrıntılı). Claude yanıt vermezse " +
+                "ya da kredisi biterse Gemini devam eder. Yeni hesaba telefon doğrulamasıyla bir kerelik " +
+                "ücretsiz deneme kredisi verilir; sonra rüya başına yaklaşık 1 sent.\n" +
+                "1. platform.claude.com'da hesap aç, telefonunu doğrula.\n" +
+                "2. API Keys › Create Key de, anahtarı kopyala, buraya yapıştır."
+        )
+        OutlinedButton(onClick = {
+            openSettings(context, Intent(Intent.ACTION_VIEW, Uri.parse("https://platform.claude.com/settings/keys")))
+        }) { Text("Claude anahtarı al", fontSize = 18.sp) }
+        var claudeKey by remember { mutableStateOf(dreams.claudeKey.value) }
+        OutlinedTextField(
+            value = claudeKey,
+            onValueChange = { claudeKey = it },
+            label = { Text("Claude API anahtarı") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(onClick = { dreams.updateClaudeKey(claudeKey) }) { Text("Claude anahtarını kaydet", fontSize = 18.sp) }
+        StatusRow("Claude", dreams.claudeKey.value.isNotBlank(), onText = "Kullanılıyor", offText = "Kapalı")
         StatusRow("Doğal ses (Gemini)", dreams.naturalVoice.value, onText = "Açık", offText = "Telefonun sesi")
         Hint(
             "Doğal ses ücretsizdir ama günlük sınırı düşüktür; dolarsa telefonun sesiyle okunur. " +

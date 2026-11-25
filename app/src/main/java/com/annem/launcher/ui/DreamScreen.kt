@@ -123,9 +123,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     fun interpret(dream: String) {
         phase = Phase.Thinking
         scope.launch {
-            when (val r = DreamInterpreter.interpret(store.apiKey.value, dream)) {
+            when (val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, dream)) {
                 is DreamResult.Ok -> {
-                    val entry = DreamEntry(System.currentTimeMillis(), dream, r.text)
+                    val entry = DreamEntry(System.currentTimeMillis(), dream, r.text, r.by)
                     store.add(entry)
                     phase = Phase.Answer(entry)
                     tts.speak(r.text, entry.time)
@@ -250,7 +250,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
         BigBackButton(label = "Ana Ekran", onClick = onBack)
         Text("Rüya Tabirleri", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
 
-        if (store.apiKey.value.isBlank()) {
+        if (!store.ready) {
             InfoCard(
                 "Rüya yorumu henüz kurulmadı. Yakınınız saate 3 saniye basılı tutup Ayarlar › " +
                     "\"Rüya Tabirleri\" bölümünden ücretsiz anahtarı girmeli."
@@ -352,7 +352,8 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     phase = Phase.Idle
                 }
                 Text(
-                    "Rüya yorumları geleneksel tabirlere dayanır; eğlence ve gönül huzuru içindir.",
+                    "Rüya yorumları geleneksel tabirlere dayanır; eğlence ve gönül huzuru içindir." +
+                        (if (p.entry.by.isNotBlank()) " Yorumlayan: ${p.entry.by}." else ""),
                     fontSize = 15.sp,
                     color = Palette.InkSoft,
                 )
