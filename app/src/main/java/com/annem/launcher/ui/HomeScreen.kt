@@ -190,15 +190,17 @@ fun HomeScreen(
             }
         }
 
-        // Ekranı Kapat ve yanında küçük "Daha fazla" düğmesi: aynı satır, dikeyde yer kaplamaz.
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
-                LockButton(onClick = {
-                    val result = ScreenLock.lock(context)
-                    if (result != LockResult.LOCKED) lockProblem = result
-                })
-            }
-            MoreButton(onOpen = { moreOpen = true })
+        // Ekranı Kapat tam genişlikte; "Daha fazla" sekmesi düğmenin üst kenarına oturur
+        // (yarısı kutularla düğme arasındaki boşlukta), dikeyde hiç yer kaplamaz.
+        Box(Modifier.fillMaxWidth()) {
+            LockButton(onClick = {
+                val result = ScreenLock.lock(context)
+                if (result != LockResult.LOCKED) lockProblem = result
+            })
+            MoreTab(
+                onOpen = { moreOpen = true },
+                modifier = Modifier.align(Alignment.TopCenter).offset(y = (-15).dp),
+            )
         }
     }
     }
@@ -538,16 +540,16 @@ private fun LockButton(onClick: () -> Unit) {
     }
 }
 
-/** Ekranı Kapat'ın sağındaki küçük kare düğme: dokun ya da yukarı kaydır → "Daha fazla" çekmecesi. */
+/** Ekranı Kapat'ın üst kenarındaki küçük sekme: dokun ya da yukarı kaydır → "Daha fazla" çekmecesi. */
 @Composable
-private fun MoreButton(onOpen: () -> Unit) {
+private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
     Surface(
         onClick = onOpen,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(15.dp),
         color = Color.White,
         border = BorderStroke(2.dp, Palette.EmptyLine),
-        modifier = Modifier
-            .size(width = 92.dp, height = 74.dp)
+        modifier = modifier
+            .height(30.dp)
             .semantics { contentDescription = "Daha fazla uygulama" }
             .pointerInput(Unit) {
                 var total = 0f
@@ -557,9 +559,13 @@ private fun MoreButton(onOpen: () -> Unit) {
                 )
             },
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(Icons.Rounded.Apps, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(30.dp))
-            Text("Daha fazla", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft, maxLines = 1)
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Daha fazla", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft, maxLines = 1)
         }
     }
 }

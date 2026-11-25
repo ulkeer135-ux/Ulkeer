@@ -227,7 +227,7 @@ fun SettingsScreen(
         Slots.visible(store.tileCount == 9).forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
         Spacer(Modifier.height(8.dp))
         Text("\"Daha fazla\" çekmecesi", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
-        Hint("Ana ekranda Ekranı Kapat düğmesinin yanındaki \"Daha fazla\"ya dokununca ya da yukarı kaydırınca açılan 6 kutu.")
+        Hint("Ana ekranda Ekranı Kapat düğmesinin üstündeki \"Daha fazla\"ya dokununca ya da yukarı kaydırınca açılan 6 kutu.")
         Slots.MORE.forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
 
         HorizontalDivider()
