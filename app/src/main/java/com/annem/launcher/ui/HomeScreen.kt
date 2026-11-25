@@ -588,17 +588,23 @@ private fun MoreSheet(
                 Triple(Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon),
                 Triple(Palette.CamBg, Palette.CamLine, Palette.CamIcon),
                 Triple(Palette.PicBg, Palette.PicLine, Palette.PicIcon),
+                Triple(Palette.Slot4Bg, Palette.Slot4Line, Palette.Slot4Icon),
+                Triple(Palette.Slot5Bg, Palette.Slot5Line, Palette.Slot5Icon),
+                Triple(Palette.Slot6Bg, Palette.Slot6Line, Palette.Slot6Icon),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth().height(160.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Slots.MORE.forEachIndexed { i, id ->
-                    val (bg, line, icon) = colors[i]
-                    SlotTile(
-                        store, id, bg, line, icon, Modifier.weight(1f).fillMaxHeight(),
-                        onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams,
-                    )
+            // 6 kutu: 3'erli iki sıra
+            Slots.MORE.chunked(3).forEachIndexed { r, row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    row.forEachIndexed { c, id ->
+                        val (bg, line, icon) = colors[r * 3 + c]
+                        SlotTile(
+                            store, id, bg, line, icon, Modifier.weight(1f).fillMaxHeight(),
+                            onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams,
+                        )
+                    }
                 }
             }
             OutlinedButton(
