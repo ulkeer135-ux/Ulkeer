@@ -40,7 +40,10 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -459,6 +462,7 @@ private fun InfoCard(text: String) {
 @Composable
 private fun DreamHistory(store: DreamStore, onOpen: (DreamEntry) -> Unit) {
     if (store.history.isEmpty()) return
+    var toDelete by remember { mutableStateOf<DreamEntry?>(null) }
     Text("Önceki rüyalarınız", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft)
     val fmt = remember { SimpleDateFormat("d MMMM, HH:mm", TR_LOCALE) }
     store.history.forEach { entry ->
@@ -469,19 +473,43 @@ private fun DreamHistory(store: DreamStore, onOpen: (DreamEntry) -> Unit) {
             border = BorderStroke(1.dp, Palette.CardBorder),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(48.dp).clip(CircleShape).background(DreamPurpleSoft),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.Bedtime, contentDescription = null, tint = DreamPurple, modifier = Modifier.size(28.dp)) }
+                ) { Icon(Icons.Rounded.VolumeUp, contentDescription = "Dinle", tint = DreamPurple, modifier = Modifier.size(28.dp)) }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(fmt.format(Date(entry.time)), fontSize = 15.sp, color = Palette.InkSoft)
                     Text(entry.dream, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                Icon(Icons.Rounded.VolumeUp, contentDescription = "Dinle", tint = DreamPurple, modifier = Modifier.size(28.dp))
+                // Sil: küçük, köşede; yanlışlıkla basılırsa önce sorar.
+                IconButton(onClick = { toDelete = entry }, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Rounded.DeleteOutline, contentDescription = "Rüyayı sil", tint = Palette.InkSoft, modifier = Modifier.size(26.dp))
+                }
             }
         }
+    }
+    toDelete?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { toDelete = null },
+            title = { Text("Bu rüya silinsin mi?", fontSize = 24.sp, fontWeight = FontWeight.Black) },
+            text = {
+                Text(entry.dream, fontSize = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            },
+            confirmButton = {
+                Button(
+                    onClick = { store.remove(entry); toDelete = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Palette.Red, contentColor = Color.White),
+                    modifier = Modifier.height(56.dp),
+                ) { Text("Evet, sil", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { toDelete = null }, modifier = Modifier.height(56.dp)) {
+                    Text("Vazgeç", fontSize = 20.sp, color = Palette.Ink)
+                }
+            },
+        )
     }
 }
 

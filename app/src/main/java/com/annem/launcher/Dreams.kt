@@ -167,7 +167,8 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
 
 /** Ayarlar'daki Gemini anahtarı ve son 10 rüya. */
 class DreamStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("annem_dreams", Context.MODE_PRIVATE)
+    private val app = context.applicationContext
+    private val prefs = app.getSharedPreferences("annem_dreams", Context.MODE_PRIVATE)
 
     val apiKey = mutableStateOf(prefs.getString("gemini_key", "").orEmpty())
     val claudeKey = mutableStateOf(prefs.getString("claude_key", "").orEmpty())
@@ -200,10 +201,21 @@ class DreamStore(context: Context) {
         save()
     }
 
+    /** Rüyayı ve saklanan sesini siler. */
     fun remove(entry: DreamEntry) {
         history.remove(entry)
         save()
+        audioDir().listFiles()?.filter { it.name.startsWith("${entry.time}_") }?.forEach { it.delete() }
     }
+
+    /** Bütün rüyaları ve sesleri siler. */
+    fun clearAll() {
+        history.clear()
+        save()
+        audioDir().listFiles()?.forEach { it.delete() }
+    }
+
+    private fun audioDir() = java.io.File(app.filesDir, "dream_audio_v2")
 
     private fun save() {
         val arr = JSONArray()

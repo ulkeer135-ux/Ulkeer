@@ -355,6 +355,27 @@ fun SettingsScreen(
         )
         OutlinedButton(onClick = { dreams.updateClaudeKey(claudeKey) }) { Text("Claude anahtarını kaydet", fontSize = 18.sp) }
         StatusRow("Claude", dreams.claudeKey.value.isNotBlank(), onText = "Kullanılıyor", offText = "Kapalı")
+        if (dreams.history.isNotEmpty()) {
+            var confirmClear by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { confirmClear = true }) {
+                Text("Tüm rüyaları sil (${dreams.history.size})", fontSize = 18.sp, color = Color(0xFFC62828))
+            }
+            if (confirmClear) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { confirmClear = false },
+                    title = { Text("Bütün rüyalar silinsin mi?") },
+                    text = { Text("Kayıtlı ${dreams.history.size} rüya, yorumları ve sesleri silinecek. Geri alınamaz.") },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = { dreams.clearAll(); confirmClear = false }) {
+                            Text("Hepsini sil", color = Color(0xFFC62828))
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { confirmClear = false }) { Text("Vazgeç") }
+                    },
+                )
+            }
+        }
         StatusRow("Doğal ses (Gemini)", dreams.naturalVoice.value, onText = "Açık", offText = "Telefonun sesi")
         Hint(
             "Doğal ses ücretsizdir ama günlük sınırı düşüktür; dolarsa telefonun sesiyle okunur. " +
