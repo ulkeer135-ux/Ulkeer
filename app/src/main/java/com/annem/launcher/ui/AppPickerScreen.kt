@@ -27,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -98,7 +100,16 @@ private fun AppRow(app: InstalledApp, onClick: () -> Unit) {
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                icon?.let { Image(bitmap = it, contentDescription = null, modifier = Modifier.size(48.dp)) }
+                if (com.annem.launcher.InternalApps.isInternal(app.packageName)) {
+                    androidx.compose.material3.Icon(
+                        Icons.Rounded.Bedtime,
+                        contentDescription = null,
+                        tint = Color(0xFF5B3FA0),
+                        modifier = Modifier.size(40.dp),
+                    )
+                } else {
+                    icon?.let { Image(bitmap = it, contentDescription = null, modifier = Modifier.size(48.dp)) }
+                }
             }
             Spacer(Modifier.width(14.dp))
             Text(app.label, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)

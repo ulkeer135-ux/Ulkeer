@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Forum
@@ -93,6 +94,7 @@ fun HomeScreen(
     onOpenContacts: () -> Unit,
     onOpenSettings: () -> Unit,
     onPickApp: (slotId: String) -> Unit,
+    onOpenDreams: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
@@ -177,7 +179,7 @@ fun HomeScreen(
             )
             Slots.visible(nine).forEachIndexed { index, id ->
                 val (bg, line, icon) = slotColors[index]
-                tiles += { m -> SlotTile(store, id, bg, line, icon, m, onPickApp, compact = nine) }
+                tiles += { m -> SlotTile(store, id, bg, line, icon, m, onPickApp, compact = nine, onOpenDreams = onOpenDreams) }
             }
             tiles.chunked(cols).forEach { row ->
                 TileRow { m -> row.forEach { tile -> tile(m) } }
@@ -348,9 +350,22 @@ private fun SlotTile(
     modifier: Modifier,
     onPickApp: (String) -> Unit,
     compact: Boolean = false,
+    onOpenDreams: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val slot = store.slot(slotId)
+    if (slot != null && com.annem.launcher.InternalApps.isInternal(slot.packageName)) {
+        Tile(
+            label = slot.label,
+            icon = Icons.Rounded.Bedtime,
+            background = background,
+            line = line,
+            iconTint = iconTint,
+            modifier = modifier,
+            compact = compact,
+        ) { onOpenDreams() }
+        return
+    }
     val installed = remember(slot?.packageName) {
         slot != null && context.packageManager.getLaunchIntentForPackage(slot.packageName) != null
     }

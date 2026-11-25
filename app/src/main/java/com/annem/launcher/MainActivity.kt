@@ -29,6 +29,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.annem.launcher.ui.AnnemTheme
 import com.annem.launcher.ui.AppPickerScreen
 import com.annem.launcher.ui.ContactsScreen
+import com.annem.launcher.ui.DreamScreen
 import com.annem.launcher.ui.HomeScreen
 import com.annem.launcher.ui.Palette
 import com.annem.launcher.ui.SettingsScreen
@@ -37,6 +38,7 @@ private sealed interface Screen {
     data object Home : Screen
     data object Contacts : Screen
     data object Settings : Screen
+    data object Dreams : Screen
     data class PickApp(val slotId: String, val fromHome: Boolean) : Screen
 }
 
@@ -56,10 +58,11 @@ class MainActivity : ComponentActivity() {
 
         hideStatusBar()
         val store = SettingsStore(applicationContext)
+        val dreams = DreamStore(applicationContext)
 
         setContent {
             AnnemTheme {
-                AnnemApp(store = store, homeSignal = homeSignal.intValue)
+                AnnemApp(store = store, dreams = dreams, homeSignal = homeSignal.intValue)
             }
         }
     }
@@ -133,7 +136,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
+private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) {
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
     LaunchedEffect(homeSignal) { screen = Screen.Home }
@@ -160,10 +163,13 @@ private fun AnnemApp(store: SettingsStore, homeSignal: Int) {
                 onOpenContacts = { screen = Screen.Contacts },
                 onOpenSettings = { screen = Screen.Settings },
                 onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
+                onOpenDreams = { screen = Screen.Dreams },
             )
+            Screen.Dreams -> DreamScreen(store = dreams, onBack = { screen = Screen.Home })
             Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(
                 store = store,
+                dreams = dreams,
                 onBack = { screen = Screen.Home },
                 onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = false) },
             )

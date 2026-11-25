@@ -62,7 +62,12 @@ import kotlinx.coroutines.launch
 
 /** Yakınlar için ayarlar: saate 3 sn basılı tutunca açılır. */
 @Composable
-fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId: String) -> Unit) {
+fun SettingsScreen(
+    store: SettingsStore,
+    dreams: com.annem.launcher.DreamStore,
+    onBack: () -> Unit,
+    onPickApp: (slotId: String) -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -299,6 +304,38 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, onPickApp: (slotId:
             },
         ) { Text(if (searching) "Aranıyor…" else "Sabit şehir olarak kaydet", fontSize = 18.sp) }
         cityMessage?.let { Hint(it) }
+
+        HorizontalDivider()
+
+        // --- Rüya Tabirleri ---
+        SectionTitle("Rüya Tabirleri")
+        Hint(
+            "Annen rüyasını sesle anlatır, yorum yazılır ve sesli okunur. Yorumu Google Gemini yapar; " +
+                "ücretsiz anahtar gerekir (kredi kartı istemez). Ana ekranda bir kutuya " +
+                "\"Rüya Tabirleri\"ni ata."
+        )
+        Hint(
+            "1. Aşağıdaki düğmeyle Google AI Studio'yu aç, Google hesabınla gir.\n" +
+                "2. \"Create API key\" (API anahtarı oluştur) de, anahtarı kopyala.\n" +
+                "3. Buraya yapıştırıp Kaydet'e bas."
+        )
+        OutlinedButton(onClick = {
+            openSettings(context, Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/apikey")))
+        }) { Text("Ücretsiz anahtar al", fontSize = 18.sp) }
+        var dreamKey by remember { mutableStateOf(dreams.apiKey.value) }
+        OutlinedTextField(
+            value = dreamKey,
+            onValueChange = { dreamKey = it },
+            label = { Text("Gemini API anahtarı") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(onClick = { dreams.updateApiKey(dreamKey) }) { Text("Kaydet", fontSize = 18.sp) }
+        StatusRow("Rüya yorumu", dreams.apiKey.value.isNotBlank(), onText = "Hazır", offText = "Anahtar yok")
+        Hint(
+            "Not: Ücretsiz kullanımda Google, gönderilen rüya metnini ürünlerini geliştirmek için " +
+                "kullanabilir. Ses telefondan çıkmaz; yalnızca yazıya dökülmüş rüya gönderilir."
+        )
 
         HorizontalDivider()
 

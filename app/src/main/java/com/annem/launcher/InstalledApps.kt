@@ -50,6 +50,7 @@ object InstalledApps {
             .filter { it.packageName != context.packageName && it.label.isNotEmpty() }
             .distinctBy { it.packageName }
             .sortedWith(compareBy<InstalledApp, String>(collator) { it.label })
+            .let { listOf(InstalledApp(InternalApps.DREAMS, InternalApps.DREAMS_LABEL)) + it }
     }
 
     // Ana ekran her açıldığında simgeleri yeniden çizmemek için küçük bir bellek önbelleği.
