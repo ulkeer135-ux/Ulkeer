@@ -50,4 +50,9 @@ jobs:
             gh release create annem-latest --target "$GITHUB_SHA" \
               --title "Annem – sade ana ekran" \
               --notes "Telefona indirip kurun. Kurulum adımları: annem-launcher dalındaki README."
-          gh release upload annem-latest Annem.apk --clobber
+          # GitHub yükleme bazen geçici hata veriyor: 4 kez dene.
+          for i in 1 2 3 4; do
+            gh release upload annem-latest Annem.apk --clobber && exit 0
+            echo "Yükleme başarısız ($i), 15 sn sonra yeniden..."; sleep 15
+          done
+          exit 1
