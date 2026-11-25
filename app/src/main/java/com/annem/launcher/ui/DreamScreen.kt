@@ -112,6 +112,8 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     var speaking by remember { mutableStateOf(false) }
     var preparing by remember { mutableStateOf(false) }
     var liveReading by remember { mutableStateOf("") }
+    // "Soruları yanıtla" modundaysa yanıtlanan yorum (değilse null).
+    var followUpFor by remember { mutableStateOf<DreamEntry?>(null) }
     val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
 
     // --- Seslendirme: Gemini doğal sesi, olmazsa telefonun en iyi Türkçe sesi ---
@@ -125,7 +127,28 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
         )
     }
 
+    fun answerQuestions(answer: String) {
+        val base = followUpFor ?: return
+        phase = Phase.Thinking
+        liveReading = ""
+        scope.launch {
+            when (val r = DreamInterpreter.followUp(store.groqKey.value, base.dream, base.reading, answer)) {
+                is DreamResult.Ok -> {
+                    // Eski kayıt yerine: rüya + ek bilgi + yeni yorum.
+                    val entry = DreamEntry(System.currentTimeMillis(), base.dream + "\nEk bilgi: " + answer, r.text, r.by)
+                    store.remove(base)
+                    store.add(entry)
+                    followUpFor = null
+                    phase = Phase.Answer(entry)
+                    tts.speak(r.text, entry.time)
+                }
+                is DreamResult.Error -> phase = Phase.Failed(answer, r.message, r.retryable, r.detail)
+            }
+        }
+    }
+
     fun interpret(dream: String) {
+        if (followUpFor != null) { answerQuestions(dream); return }
         phase = Phase.Thinking
         liveReading = ""
         scope.launch {
@@ -159,7 +182,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     if (transcript.isNotBlank()) {
                         interpret(transcript)
                     } else {
-                        phase = Phase.Idle
+                        val back = followUpFor
+                        followUpFor = null
+                        phase = if (back != null) Phase.Answer(back) else Phase.Idle
                         notice = reason ?: "Sesinizi duyamadım. Düğmeye basıp tekrar anlatın."
                     }
                 }
@@ -296,8 +321,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                followUpFor?.let { TextCard(title = "Sorular", text = questionsOf(it.reading), small = true) }
                 val shown = (transcript + " " + partial).trim()
-                if (shown.isNotEmpty()) TextCard(title = "Anlattığınız", text = shown)
+                if (shown.isNotEmpty()) TextCard(title = if (followUpFor != null) "Cevabınız" else "Anlattığınız", text = shown)
                 Button(
                     onClick = {
                         phase = Phase.Finishing
@@ -316,7 +342,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     onClick = {
                         listener.cancel()
                         transcript = ""
-                        phase = Phase.Idle
+                        val back = followUpFor
+                        followUpFor = null
+                        phase = if (back != null) Phase.Answer(back) else Phase.Idle
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(18.dp),
@@ -324,7 +352,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
             }
 
             Phase.Thinking -> {
-                TextCard(title = "Rüyanız", text = transcript, small = true)
+                TextCard(title = if (followUpFor != null) "Cevabınız" else "Rüyanız", text = transcript, small = true)
                 if (liveReading.isNotBlank()) TextCard(title = "Yorumu yazılıyor…", text = liveReading, highlight = true)
                 if (liveReading.isBlank()) Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -357,8 +385,26 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Text(if (speaking) "Okumayı durdur" else "Yorumu tekrar dinle", fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
+                if (asksQuestions(p.entry.reading)) {
+                    Button(
+                        onClick = {
+                            tts.stop()
+                            followUpFor = p.entry
+                            startListening()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(72.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
+                    ) {
+                        Icon(Icons.Rounded.Mic, contentDescription = null, modifier = Modifier.size(30.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Soruları yanıtla", fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                notice?.let { InfoCard(it) }
                 NewDreamButton {
                     tts.stop()
+                    followUpFor = null
                     phase = Phase.Idle
                 }
                 Text(
@@ -387,7 +433,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                         Text("Tekrar dene", fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
-                NewDreamButton { phase = Phase.Idle }
+                NewDreamButton { followUpFor = null; phase = Phase.Idle }
             }
         }
     }
@@ -636,4 +682,18 @@ private class DreamListener(
         recognizer?.destroy()
         recognizer = null
     }
+}
+
+/** Yorum, rüya sahibinden bilgi isteyen sorularla mı bitiyor? (son kısımda soru işareti) */
+private fun asksQuestions(reading: String): Boolean {
+    val tail = reading.takeLast(500)
+    return tail.count { it == '?' } >= 1 &&
+        (reading.trimEnd().endsWith("?") || tail.contains("ayrıntı") || tail.contains("anlatır mısınız") ||
+            tail.contains("verir misiniz") || tail.contains("söyler misiniz") || tail.count { it == '?' } >= 2)
+}
+
+/** Yorumdaki soru cümleleri (dinlerken hatırlatmak için). */
+private fun questionsOf(reading: String): String {
+    val qs = reading.split(Regex("(?<=[.!?…])\\s+")).filter { it.trim().endsWith("?") }
+    return if (qs.isEmpty()) reading.takeLast(300) else qs.joinToString("\n")
 }

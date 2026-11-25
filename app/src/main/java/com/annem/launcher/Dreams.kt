@@ -149,6 +149,22 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
         (last as? DreamResult.Error)?.copy(detail = trace.joinToString(" · ")) ?: last
     }
 
+    /** Soruları yanıtla: önceki yorumla birleştirip yeniden yorumlat (Groq). */
+    suspend fun followUp(groqKey: String, dream: String, previous: String, answer: String): DreamResult =
+        withContext(Dispatchers.IO) {
+            if (groqKey.isBlank()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da Groq anahtarı girilmeli.", false)
+            trace.clear()
+            var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
+            for (wait in listOf(0L, 4_000L)) {
+                if (wait > 0) delay(wait)
+                last = GroqDreams.followUp(groqKey.trim(), PROMPT, dream, previous, answer)
+                if (last is DreamResult.Ok) return@withContext last
+                val err = last as DreamResult.Error
+                if (!err.retryable || err.quota) break
+            }
+            (last as? DreamResult.Error)?.copy(detail = trace.joinToString(" · ")) ?: last
+        }
+
     private fun gemini(apiKey: String, dream: String, onPartial: (String) -> Unit): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         for (model in geminiModels(apiKey)) {
@@ -452,27 +468,40 @@ object GroqDreams {
         return models.ifEmpty { listOf("openai/gpt-oss-120b", "llama-3.3-70b-versatile") }
     }
 
-    fun interpret(apiKey: String, prompt: String, dream: String): DreamResult {
+    fun interpret(apiKey: String, prompt: String, dream: String): DreamResult =
+        run(apiKey, JSONArray()
+            .put(JSONObject().put("role", "system").put("content", prompt))
+            .put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream")))
+
+    /**
+     * Yorum soruyla bittiyse: ilk rüya, önceki yorum (sorular) ve annenin cevabı birlikte
+     * gönderilir; model artık soru sormadan rüyayı tam yorumlar.
+     */
+    fun followUp(apiKey: String, prompt: String, dream: String, previous: String, answer: String): DreamResult =
+        run(apiKey, JSONArray()
+            .put(JSONObject().put("role", "system").put("content", prompt +
+                "\n\nRüya sahibi sorularınıza cevap verdi. Artık YENİ SORU SORMA; verilen bilgilerle rüyayı eksiksiz yorumla."))
+            .put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream"))
+            .put(JSONObject().put("role", "assistant").put("content", previous))
+            .put(JSONObject().put("role", "user").put("content",
+                "Sorularınıza cevabım:\n$answer\n\nŞimdi bu bilgilerle rüyamı yorumlar mısınız?")))
+
+    private fun run(apiKey: String, messages: JSONArray): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
         for (model in pickModels(apiKey)) {
-            last = call(apiKey, model, prompt, dream)
+            last = call(apiKey, model, messages)
             if (last is DreamResult.Ok) return last
             if (last is DreamResult.Error && !(last as DreamResult.Error).retryable && !(last as DreamResult.Error).quota) return last
         }
         return last
     }
 
-    private fun call(apiKey: String, model: String, prompt: String, dream: String): DreamResult {
+    private fun call(apiKey: String, model: String, messages: JSONArray): DreamResult {
         val body = JSONObject()
             .put("model", model)
             .put("temperature", 0.7)
             .put("max_completion_tokens", 4096)
-            .put(
-                "messages",
-                JSONArray()
-                    .put(JSONObject().put("role", "system").put("content", prompt))
-                    .put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream")),
-            )
+            .put("messages", messages)
         // Düşünen modellerde düşünceyi kısa tut ve metne karıştırma.
         if ("gpt-oss" in model) body.put("reasoning_effort", "low")
         if ("qwen" in model) body.put("reasoning_format", "hidden")
