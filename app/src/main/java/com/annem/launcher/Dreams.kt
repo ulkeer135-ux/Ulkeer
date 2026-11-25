@@ -102,7 +102,11 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
         return last
     }
 
-    /** Gemini'den yorumu akış hâlinde alır: yazıldıkça ekrana gelir. */
+    /**
+     * Gemini'den yorumu tek parça alır. (Akışlı yanıt ücretsiz katmanda yorumu yarıda
+     * bırakıyordu; tek parça yanıt güvenilir.) Düzgün bitmeyen yorum yeniden denenir.
+     */
+    @Suppress("UNUSED_PARAMETER")
     private fun call(apiKey: String, model: String, dream: String, onPartial: (String) -> Unit): DreamResult {
         val body = JSONObject()
             .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", PROMPT))))
@@ -115,61 +119,54 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
             )
             .put("generationConfig", JSONObject().put("temperature", 0.7).put("maxOutputTokens", 8192))
         val conn = try {
-            (URL("https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse").openConnection() as HttpURLConnection)
+            (URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection)
         } catch (e: IOException) {
             return DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         }
-        val sb = StringBuilder()
         return try {
             conn.requestMethod = "POST"
             conn.connectTimeout = 15_000
-            conn.readTimeout = 40_000 // iki parça arası en fazla
+            conn.readTimeout = 60_000
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             conn.setRequestProperty("x-goog-api-key", apiKey)
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
-            if (code !in 200..299) {
-                val text = conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-                return when {
-                    code == 400 && text.contains("API_KEY", ignoreCase = true) ->
-                        DreamResult.Error("Ayarlar'daki rüya anahtarı geçersiz. Yakınınız kontrol etmeli.", false)
-                    code == 401 || code == 403 ->
-                        DreamResult.Error("Ayarlar'daki rüya anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
-                    code == 429 -> DreamResult.Error("Bugünlük ücretsiz yorum hakkı doldu. Yarın tekrar deneyin.", true)
-                    else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
-                }
-            }
-            var finishReason = ""
-            conn.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
-                lines.forEach { line ->
-                    if (!line.startsWith("data:")) return@forEach
-                    val obj = runCatching { JSONObject(line.removePrefix("data:").trim()) }.getOrNull() ?: return@forEach
-                    val cand = obj.optJSONArray("candidates")?.optJSONObject(0) ?: return@forEach
-                    cand.optString("finishReason", "").takeIf { it.isNotEmpty() }?.let { finishReason = it }
-                    val parts = cand.optJSONObject("content")?.optJSONArray("parts") ?: return@forEach
-                    for (i in 0 until parts.length()) {
-                        val part = parts.optJSONObject(i) ?: continue
-                        if (part.optBoolean("thought", false)) continue
-                        sb.append(part.optString("text"))
-                    }
-                    onPartial(cleanText(sb.toString()))
-                }
-            }
-            // Yalnızca düzgün biten yorumu kabul et; Google bazen yarıda kesiyor
-            // (SAFETY, RECITATION, OTHER ya da bağlantı sonu): o zaman yeniden denenir.
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             when {
-                finishReason == "STOP" -> finish(sb)
-                finishReason == "MAX_TOKENS" && sb.length > 600 -> finish(sb)
-                else -> DreamResult.Error("Yorum yarım kaldı. Tekrar deneyin.", true)
+                code in 200..299 -> parse(text)
+                code == 400 && text.contains("API_KEY", ignoreCase = true) ->
+                    DreamResult.Error("Ayarlar'daki rüya anahtarı geçersiz. Yakınınız kontrol etmeli.", false)
+                code == 401 || code == 403 ->
+                    DreamResult.Error("Ayarlar'daki rüya anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
+                code == 429 -> DreamResult.Error("Bugünlük ücretsiz yorum hakkı doldu. Yarın tekrar deneyin.", true)
+                else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
             }
         } catch (e: IOException) {
-            // Yarıda koptuysa ve yorumun çoğu geldiyse onu kullan.
-            if (sb.length > 600) finish(sb) else DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
+            DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         } catch (e: Exception) {
             DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         } finally {
             conn.disconnect()
+        }
+    }
+
+    private fun parse(json: String): DreamResult {
+        val cand = JSONObject(json).optJSONArray("candidates")?.optJSONObject(0)
+            ?: return DreamResult.Error("Bu rüya için yorum yapılamadı. Biraz farklı anlatmayı deneyin.", false)
+        val finishReason = cand.optString("finishReason", "")
+        val parts = cand.optJSONObject("content")?.optJSONArray("parts") ?: JSONArray()
+        val sb = StringBuilder()
+        for (i in 0 until parts.length()) {
+            val part = parts.optJSONObject(i) ?: continue
+            if (part.optBoolean("thought", false)) continue
+            sb.append(part.optString("text"))
+        }
+        return when {
+            finishReason == "STOP" || finishReason.isEmpty() -> finish(sb)
+            finishReason == "MAX_TOKENS" && sb.length > 600 -> finish(sb)
+            else -> DreamResult.Error("Yorum yarım kaldı. Tekrar deneyin.", true)
         }
     }
 

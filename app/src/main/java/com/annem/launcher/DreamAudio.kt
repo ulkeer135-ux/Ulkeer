@@ -17,6 +17,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -109,7 +110,7 @@ object GeminiSpeech {
         return try {
             conn.requestMethod = "POST"
             conn.connectTimeout = 15_000
-            conn.readTimeout = 120_000
+            conn.readTimeout = 45_000
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             conn.setRequestProperty("x-goog-api-key", apiKey)
@@ -191,7 +192,10 @@ class DreamPlayer(
             val firstFile = File(dir, "${key}_0.wav")
             val secondFile = File(dir, "${key}_1.wav")
             val second = if (parts.size > 1) async { cachedOrSynth(secondFile, parts[1]) } else null
-            val first = cachedOrSynth(firstFile, parts[0])
+            // Doğal ses 8 sn içinde hazır değilse beklemeden telefonun sesiyle oku.
+            // (Arkadaki istek sürer; ses gelirse saklanır, tekrar dinlerken kullanılır.)
+            val firstJob = async { cachedOrSynth(firstFile, parts[0]) }
+            val first = withTimeoutOrNull(FIRST_WAIT_MS) { firstJob.await() }
             if (first == null) {
                 second?.cancel()
                 onState(false, false)
@@ -201,7 +205,7 @@ class DreamPlayer(
             onState(true, false)
             play(first)
             if (second != null) {
-                val f = second.await()
+                val f = withTimeoutOrNull(SECOND_WAIT_MS) { second.await() }
                 if (f != null) play(f) else device.speakAndWait(parts[1])
             }
             onState(false, false)
@@ -221,6 +225,11 @@ class DreamPlayer(
     fun shutdown() {
         stop()
         device.shutdown()
+    }
+
+    private companion object {
+        const val FIRST_WAIT_MS = 8_000L
+        const val SECOND_WAIT_MS = 20_000L
     }
 
     private suspend fun cachedOrSynth(file: File, text: String): File? {
