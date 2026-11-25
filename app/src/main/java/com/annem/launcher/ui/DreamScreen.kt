@@ -94,7 +94,7 @@ private sealed interface Phase {
     data object Finishing : Phase
     data object Thinking : Phase
     data class Answer(val entry: DreamEntry) : Phase
-    data class Failed(val dream: String, val message: String, val retryable: Boolean) : Phase
+    data class Failed(val dream: String, val message: String, val retryable: Boolean, val detail: String = "") : Phase
 }
 
 /**
@@ -139,7 +139,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     phase = Phase.Answer(entry)
                     tts.speak(r.text, entry.time)
                 }
-                is DreamResult.Error -> phase = Phase.Failed(dream, r.message, r.retryable)
+                is DreamResult.Error -> phase = Phase.Failed(dream, r.message, r.retryable, r.detail)
             }
         }
     }
@@ -372,6 +372,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
             is Phase.Failed -> {
                 if (p.dream.isNotBlank()) TextCard(title = "Rüyanız", text = p.dream, small = true)
                 InfoCard(p.message)
+                if (p.detail.isNotBlank()) {
+                    Text("Teknik bilgi: ${p.detail}", fontSize = 13.sp, color = Palette.InkSoft)
+                }
                 if (p.retryable) {
                     Button(
                         onClick = { interpret(p.dream) },

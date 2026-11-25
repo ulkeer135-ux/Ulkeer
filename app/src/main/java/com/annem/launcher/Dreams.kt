@@ -26,7 +26,7 @@ data class DreamEntry(val time: Long, val dream: String, val reading: String, va
 /** Yorum sonucu: ya metin ya da anneye gösterilecek sade bir hata. */
 sealed interface DreamResult {
     data class Ok(val text: String, val by: String = "") : DreamResult
-    data class Error(val message: String, val retryable: Boolean) : DreamResult
+    data class Error(val message: String, val retryable: Boolean, val detail: String = "") : DreamResult
 }
 
 /**
@@ -36,7 +36,49 @@ sealed interface DreamResult {
 object DreamInterpreter {
 
     // "-latest" takma adları: Google model sürümlerini değiştirdikçe uygulama bozulmasın.
-    private val MODELS = listOf("gemini-flash-latest", "gemini-flash-lite-latest")
+    private val ALIASES = listOf("gemini-flash-latest", "gemini-flash-lite-latest")
+
+    /** Bu istekte denenenlerin kısa özeti (hata olursa küçük yazıyla gösterilir). */
+    private val trace = java.util.Collections.synchronizedList(mutableListOf<String>())
+    fun note(s: String) { trace.add(s) }
+
+    @Volatile private var discovered: List<String> = emptyList()
+    @Volatile private var discoveredAt = 0L
+
+    /**
+     * Anahtarın erişebildiği Gemini metin modellerini Google'dan öğrenir (günde bir kez):
+     * Google model adlarını değiştirse ya da biri yoğun olsa da çalışan bir model bulunur.
+     */
+    private fun geminiModels(apiKey: String): List<String> {
+        val now = System.currentTimeMillis()
+        if (discovered.isEmpty() || now - discoveredAt > 24 * 3600_000L) {
+            runCatching {
+                val conn = URL("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200").openConnection() as HttpURLConnection
+                try {
+                    conn.connectTimeout = 10_000
+                    conn.readTimeout = 15_000
+                    conn.setRequestProperty("x-goog-api-key", apiKey)
+                    if (conn.responseCode in 200..299) {
+                        val arr = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("models") ?: JSONArray()
+                        val names = (0 until arr.length()).mapNotNull { i ->
+                            val m = arr.optJSONObject(i) ?: return@mapNotNull null
+                            val methods = m.optJSONArray("supportedGenerationMethods")?.toString().orEmpty()
+                            val name = m.optString("name").removePrefix("models/")
+                            val bad = listOf("tts", "image", "live", "audio", "embedding", "native", "robotics", "computer", "thinking-exp")
+                            if ("generateContent" in methods && "flash" in name && bad.none { it in name }) name else null
+                        }
+                        // Önce tam (lite olmayan), yeni sürüm önce; sonra lite.
+                        val full = names.filter { "lite" !in it }.sortedDescending()
+                        val lite = names.filter { "lite" in it }.sortedDescending()
+                        discovered = (full.take(2) + lite.take(1))
+                        discoveredAt = now
+                    }
+                } finally { conn.disconnect() }
+            }
+        }
+        return (listOf(ALIASES[0]) + discovered.filter { "lite" !in it } + ALIASES[1] + discovered.filter { "lite" in it })
+            .distinct().take(4)
+    }
 
     const val PROMPT = """Sen Türk rüya tabiri geleneğini çok iyi bilen, sıcak ve sevecen, tecrübeli bir rüya yorumcususun. İbn Sîrîn, Nablusî ve Kirmânî gibi klasik tabir kitaplarındaki ve Anadolu halk inancındaki yaygın anlamları bilirsin.
 Rüyayı anlatan kişi yaşlı bir anne; rüyasını sesle anlattı, metinde konuşma hataları olabilir, anlamı tahmin et.
@@ -77,10 +119,11 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
             if (geminiKey.isNotBlank()) add { gemini(geminiKey.trim(), dream, onPartial) }
         }
         if (services.isEmpty()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da anahtar girilmeli.", false)
+        trace.clear()
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         for (service in services) {
-            // Her servis için: hemen, 3 sn sonra, 8 sn sonra.
-            for (wait in listOf(0L, 3_000L, 8_000L)) {
+            // Her servis için: hemen, sonra 4 sn bekleyip bir kez daha.
+            for (wait in listOf(0L, 4_000L)) {
                 if (wait > 0) delay(wait)
                 onPartial("")
                 last = service()
@@ -88,12 +131,12 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
                 if (!(last as DreamResult.Error).retryable) break // anahtar/kredi sorunu: diğer servise geç
             }
         }
-        last
+        (last as? DreamResult.Error)?.copy(detail = trace.joinToString(" · ")) ?: last
     }
 
     private fun gemini(apiKey: String, dream: String, onPartial: (String) -> Unit): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
-        for (model in MODELS) {
+        for (model in geminiModels(apiKey)) {
             onPartial("")
             last = call(apiKey, model, dream, onPartial)
             if (last is DreamResult.Ok) return (last as DreamResult.Ok).copy(by = "Gemini")
@@ -134,8 +177,9 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
             val code = conn.responseCode
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) note("$model: $code")
             when {
-                code in 200..299 -> parse(text)
+                code in 200..299 -> parse(text).also { if (it is DreamResult.Error) note("$model: yarım") }
                 code == 400 && text.contains("API_KEY", ignoreCase = true) ->
                     DreamResult.Error("Ayarlar'daki rüya anahtarı geçersiz. Yakınınız kontrol etmeli.", false)
                 code == 401 || code == 403 ->
@@ -144,8 +188,10 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
                 else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
             }
         } catch (e: IOException) {
+            note("$model: bağlantı")
             DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         } catch (e: Exception) {
+            note("$model: hata")
             DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         } finally {
             conn.disconnect()
@@ -285,6 +331,7 @@ object ClaudeDreams {
             val code = conn.responseCode
             if (code !in 200..299) {
                 val text = conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                DreamInterpreter.note("Claude: $code" + if (text.contains("credit", true)) " kredi yok" else "")
                 return when {
                     code == 401 || code == 403 ->
                         DreamResult.Error("Ayarlar'daki Claude anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
