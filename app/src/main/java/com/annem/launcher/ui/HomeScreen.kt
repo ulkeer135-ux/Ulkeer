@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
@@ -546,9 +547,9 @@ private fun MoreHandle(onOpen: () -> Unit) {
             .height(46.dp)
             .pointerInput(Unit) {
                 var total = 0f
-                androidx.compose.foundation.gestures.detectVerticalDragGestures(
-                    onDragStart = { total = 0f },
-                    onVerticalDrag = { _, dy -> total += dy; if (total < -40f) { total = 0f; onOpen() } },
+                detectVerticalDragGestures(
+                    onDragStart = { _ -> total = 0f },
+                    onVerticalDrag = { _, dy: Float -> total += dy; if (total < -40f) { total = 0f; onOpen() } },
                 )
             },
     ) {
