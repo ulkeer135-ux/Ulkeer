@@ -150,6 +150,14 @@ class DreamStore(context: Context) {
     val apiKey = mutableStateOf(prefs.getString("gemini_key", "").orEmpty())
     val history = mutableStateListOf<DreamEntry>().apply { addAll(loadHistory()) }
 
+    /** Yorumu Gemini'nin doğal sesiyle oku (kapalıysa telefonun sesi). */
+    val naturalVoice = mutableStateOf(prefs.getBoolean("natural_voice", true))
+
+    fun updateNaturalVoice(on: Boolean) {
+        naturalVoice.value = on
+        prefs.edit().putBoolean("natural_voice", on).apply()
+    }
+
     fun updateApiKey(key: String) {
         apiKey.value = key.trim()
         prefs.edit().putString("gemini_key", key.trim()).apply()

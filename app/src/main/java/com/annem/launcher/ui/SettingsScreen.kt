@@ -332,6 +332,14 @@ fun SettingsScreen(
         )
         OutlinedButton(onClick = { dreams.updateApiKey(dreamKey) }) { Text("Kaydet", fontSize = 18.sp) }
         StatusRow("Rüya yorumu", dreams.apiKey.value.isNotBlank(), onText = "Hazır", offText = "Anahtar yok")
+        StatusRow("Doğal ses (Gemini)", dreams.naturalVoice.value, onText = "Açık", offText = "Telefonun sesi")
+        Hint(
+            "Doğal ses ücretsizdir ama günlük sınırı düşüktür; dolarsa telefonun sesiyle okunur. " +
+                "Bir kez seslendirilen yorum saklanır, tekrar dinlemek hak harcamaz."
+        )
+        OutlinedButton(onClick = { dreams.updateNaturalVoice(!dreams.naturalVoice.value) }) {
+            Text(if (dreams.naturalVoice.value) "Telefonun sesini kullan" else "Doğal sesi kullan", fontSize = 18.sp)
+        }
         Hint(
             "Not: Ücretsiz kullanımda Google, gönderilen rüya metnini ürünlerini geliştirmek için " +
                 "kullanabilir. Ses telefondan çıkmaz; yalnızca yazıya dökülmüş rüya gönderilir."

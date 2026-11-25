@@ -8,8 +8,6 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -106,9 +104,18 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     var partial by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf<String?>(null) }
     var speaking by remember { mutableStateOf(false) }
+    var preparing by remember { mutableStateOf(false) }
 
-    // --- Seslendirme ---
-    val tts = remember { DreamVoice(context) { speaking = it } }
+    // --- Seslendirme: Gemini doğal sesi, olmazsa telefonun en iyi Türkçe sesi ---
+    val tts = remember {
+        com.annem.launcher.DreamPlayer(
+            context = context,
+            scope = scope,
+            apiKey = { store.apiKey.value },
+            natural = { store.naturalVoice.value },
+            onState = { s, p -> speaking = s; preparing = p },
+        )
+    }
 
     fun interpret(dream: String) {
         phase = Phase.Thinking
@@ -118,7 +125,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     val entry = DreamEntry(System.currentTimeMillis(), dream, r.text)
                     store.add(entry)
                     phase = Phase.Answer(entry)
-                    tts.speak(r.text)
+                    tts.speak(r.text, entry.time)
                 }
                 is DreamResult.Error -> phase = Phase.Failed(dream, r.message, r.retryable)
             }
@@ -243,7 +250,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                 notice?.let { InfoCard(it) }
                 DreamHistory(store, onOpen = { entry ->
                     phase = Phase.Answer(entry)
-                    tts.speak(entry.reading)
+                    tts.speak(entry.reading, entry.time)
                 })
             }
 
@@ -302,8 +309,15 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
             is Phase.Answer -> {
                 TextCard(title = "Rüyanız", text = p.entry.dream, small = true)
                 TextCard(title = "Yorumu", text = p.entry.reading, highlight = true)
+                if (preparing) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(color = DreamPurple, strokeWidth = 4.dp, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Ses hazırlanıyor…", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DreamPurple)
+                    }
+                }
                 Button(
-                    onClick = { if (speaking) tts.stop() else tts.speak(p.entry.reading) },
+                    onClick = { if (speaking) tts.stop() else tts.speak(p.entry.reading, p.entry.time) },
                     modifier = Modifier.fillMaxWidth().height(68.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DreamPurple, contentColor = Color.White),
@@ -447,60 +461,6 @@ private fun DreamHistory(store: DreamStore, onOpen: (DreamEntry) -> Unit) {
             }
         }
     }
-}
-
-/** Telefonun Türkçe sesiyle okur; uzun metni cümle gruplarına bölerek sıraya koyar. */
-private class DreamVoice(context: Context, private val onSpeaking: (Boolean) -> Unit) {
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
-    private var ready = false
-    private var pending: String? = null
-    private val tts: TextToSpeech = TextToSpeech(context.applicationContext) { status ->
-        main.post {
-            if (status == TextToSpeech.SUCCESS) {
-                tts.language = TR_LOCALE
-                tts.setSpeechRate(0.9f)
-                ready = true
-                pending?.let { speak(it) }
-                pending = null
-            }
-        }
-    }
-
-    init {
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) { main.post { onSpeaking(true) } }
-            override fun onDone(utteranceId: String?) { if (utteranceId == LAST) main.post { onSpeaking(false) } }
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) { main.post { onSpeaking(false) } }
-            override fun onStop(utteranceId: String?, interrupted: Boolean) { main.post { onSpeaking(false) } }
-        })
-    }
-
-    fun speak(text: String) {
-        if (!ready) { pending = text; return }
-        tts.stop()
-        val chunks = text.split(Regex("(?<=[.!?…])\\s+")).fold(mutableListOf<String>()) { acc, s ->
-            if (acc.isNotEmpty() && acc.last().length + s.length < 400) acc[acc.lastIndex] = acc.last() + " " + s else acc.add(s)
-            acc
-        }.filter { it.isNotBlank() }
-        chunks.forEachIndexed { i, c ->
-            val id = if (i == chunks.lastIndex) LAST else "part$i"
-            tts.speak(c, if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, Bundle(), id)
-        }
-    }
-
-    fun stop() {
-        pending = null
-        if (ready) tts.stop()
-        onSpeaking(false)
-    }
-
-    fun shutdown() {
-        stop()
-        tts.shutdown()
-    }
-
-    private companion object { const val LAST = "last" }
 }
 
 /**
