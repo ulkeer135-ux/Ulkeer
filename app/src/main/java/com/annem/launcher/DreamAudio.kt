@@ -36,8 +36,8 @@ object GeminiSpeech {
 
     const val VOICE = "Sulafat" // Google'ın "sıcak" diye tanımladığı ses
 
-    private const val STYLE = "Aşağıdaki Türkçe metni sıcak, sakin ve şefkatli bir sesle, yavaş ve tane tane, " +
-        "yaşlı bir anneye rüyasını anlatan bilge bir büyük gibi oku. Yalnızca metni oku:\n\n"
+    // Okuma tarzı metne EKLENMEZ (yoksa model talimatı da sesli okuyor); ayrı alanda verilir.
+    private const val STYLE = "warm, calm and gentle, speaking slowly and clearly, like a kind elder"
 
     // Yeni "interactions" uç noktası ve modelleri; olmazsa eski generateContent TTS modeli.
     private val INTERACTION_MODELS = listOf("gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview", "gemini-3.8-flash-lite-tts")
@@ -53,9 +53,30 @@ object GeminiSpeech {
     }
 
     private fun interaction(apiKey: String, model: String, text: String): ByteArray? {
+        // Önce tarz notuyla; bu alanı kabul etmezse yalnızca metinle.
+        return interactionRequest(apiKey, model, text, withStyle = true)
+            ?: interactionRequest(apiKey, model, text, withStyle = false)
+    }
+
+    private fun interactionRequest(apiKey: String, model: String, text: String, withStyle: Boolean): ByteArray? {
+        val input: Any = if (withStyle) {
+            JSONArray().put(
+                JSONObject().put("type", "user_input").put(
+                    "content",
+                    JSONArray().put(
+                        JSONObject().put("type", "text").put("text", text).put(
+                            "annotations",
+                            JSONArray().put(JSONObject().put("type", "speech_metadata").put("style", STYLE)),
+                        )
+                    ),
+                )
+            )
+        } else {
+            text
+        }
         val body = JSONObject()
             .put("model", model)
-            .put("input", STYLE + text)
+            .put("input", input)
             .put("response_format", JSONObject().put("type", "audio"))
             .put("generation_config", JSONObject().put("speech_config", JSONArray().put(JSONObject().put("voice", VOICE))))
         val json = post("https://generativelanguage.googleapis.com/v1beta/interactions", apiKey, body) ?: return null
@@ -64,7 +85,7 @@ object GeminiSpeech {
 
     private fun legacy(apiKey: String, text: String): ByteArray? {
         val body = JSONObject()
-            .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", STYLE + text)))))
+            .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", text)))))
             .put(
                 "generationConfig",
                 JSONObject()
@@ -154,7 +175,11 @@ class DreamPlayer(
     private val device = DeviceVoice(app) { s -> onState(s, false) }
     private var job: Job? = null
     private var player: MediaPlayer? = null
-    private val dir = File(app.filesDir, "dream_audio").apply { mkdirs() }
+    // v2: eski sürümün sesleri talimatı da okuyordu; o klasör silinir.
+    private val dir = File(app.filesDir, "dream_audio_v2").apply {
+        File(app.filesDir, "dream_audio").deleteRecursively()
+        mkdirs()
+    }
 
     fun speak(text: String, key: Long) {
         stop()
