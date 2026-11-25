@@ -66,10 +66,15 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
      * Claude anahtarı varsa önce Claude, yoksa Gemini. Biri yanıt vermezse birkaç saniye
      * bekleyip yeniden dener, yine olmazsa diğer servise geçer: anne hatayı nadiren görür.
      */
-    suspend fun interpret(geminiKey: String, claudeKey: String, dream: String): DreamResult = withContext(Dispatchers.IO) {
+    suspend fun interpret(
+        geminiKey: String,
+        claudeKey: String,
+        dream: String,
+        onPartial: (String) -> Unit = {},
+    ): DreamResult = withContext(Dispatchers.IO) {
         val services = buildList<suspend () -> DreamResult> {
-            if (claudeKey.isNotBlank()) add { ClaudeDreams.interpret(claudeKey.trim(), PROMPT, dream) }
-            if (geminiKey.isNotBlank()) add { gemini(geminiKey.trim(), dream) }
+            if (claudeKey.isNotBlank()) add { ClaudeDreams.interpret(claudeKey.trim(), PROMPT, dream, onPartial) }
+            if (geminiKey.isNotBlank()) add { gemini(geminiKey.trim(), dream, onPartial) }
         }
         if (services.isEmpty()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da anahtar girilmeli.", false)
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
@@ -77,6 +82,7 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
             // Her servis için: hemen, 3 sn sonra, 8 sn sonra.
             for (wait in listOf(0L, 3_000L, 8_000L)) {
                 if (wait > 0) delay(wait)
+                onPartial("")
                 last = service()
                 if (last is DreamResult.Ok) return@withContext last
                 if (!(last as DreamResult.Error).retryable) break // anahtar/kredi sorunu: diğer servise geç
@@ -85,17 +91,19 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
         last
     }
 
-    private fun gemini(apiKey: String, dream: String): DreamResult {
+    private fun gemini(apiKey: String, dream: String, onPartial: (String) -> Unit): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         for (model in MODELS) {
-            last = call(apiKey, model, dream)
+            onPartial("")
+            last = call(apiKey, model, dream, onPartial)
             if (last is DreamResult.Ok) return (last as DreamResult.Ok).copy(by = "Gemini")
             if (last is DreamResult.Error && !(last as DreamResult.Error).retryable) return last
         }
         return last
     }
 
-    private fun call(apiKey: String, model: String, dream: String): DreamResult {
+    /** Gemini'den yorumu akış hâlinde alır: yazıldıkça ekrana gelir. */
+    private fun call(apiKey: String, model: String, dream: String, onPartial: (String) -> Unit): DreamResult {
         val body = JSONObject()
             .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", PROMPT))))
             .put(
@@ -107,33 +115,49 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
             )
             .put("generationConfig", JSONObject().put("temperature", 0.7).put("maxOutputTokens", 8192))
         val conn = try {
-            (URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection)
+            (URL("https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse").openConnection() as HttpURLConnection)
         } catch (e: IOException) {
             return DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         }
+        val sb = StringBuilder()
         return try {
             conn.requestMethod = "POST"
             conn.connectTimeout = 15_000
-            conn.readTimeout = 60_000
+            conn.readTimeout = 40_000 // iki parça arası en fazla
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             conn.setRequestProperty("x-goog-api-key", apiKey)
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
-            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
-                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            when {
-                code in 200..299 -> parse(text)
-                code == 400 && text.contains("API_KEY", ignoreCase = true) ->
-                    DreamResult.Error("Ayarlar'daki rüya anahtarı geçersiz. Yakınınız kontrol etmeli.", false)
-                code == 401 || code == 403 ->
-                    DreamResult.Error("Ayarlar'daki rüya anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
-                code == 429 -> DreamResult.Error("Bugünlük ücretsiz yorum hakkı doldu. Yarın tekrar deneyin.", true)
-                code == 404 -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
-                else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
+            if (code !in 200..299) {
+                val text = conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                return when {
+                    code == 400 && text.contains("API_KEY", ignoreCase = true) ->
+                        DreamResult.Error("Ayarlar'daki rüya anahtarı geçersiz. Yakınınız kontrol etmeli.", false)
+                    code == 401 || code == 403 ->
+                        DreamResult.Error("Ayarlar'daki rüya anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
+                    code == 429 -> DreamResult.Error("Bugünlük ücretsiz yorum hakkı doldu. Yarın tekrar deneyin.", true)
+                    else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
+                }
             }
+            conn.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                lines.forEach { line ->
+                    if (!line.startsWith("data:")) return@forEach
+                    val obj = runCatching { JSONObject(line.removePrefix("data:").trim()) }.getOrNull() ?: return@forEach
+                    val parts = obj.optJSONArray("candidates")?.optJSONObject(0)
+                        ?.optJSONObject("content")?.optJSONArray("parts") ?: return@forEach
+                    for (i in 0 until parts.length()) {
+                        val part = parts.optJSONObject(i) ?: continue
+                        if (part.optBoolean("thought", false)) continue
+                        sb.append(part.optString("text"))
+                    }
+                    onPartial(cleanText(sb.toString()))
+                }
+            }
+            finish(sb)
         } catch (e: IOException) {
-            DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
+            // Yarıda koptuysa ve yorumun çoğu geldiyse onu kullan.
+            if (sb.length > 600) finish(sb) else DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         } catch (e: Exception) {
             DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         } finally {
@@ -141,28 +165,20 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
         }
     }
 
-    private fun parse(json: String): DreamResult {
-        val root = JSONObject(json)
-        val parts = root.optJSONArray("candidates")?.optJSONObject(0)
-            ?.optJSONObject("content")?.optJSONArray("parts")
-            ?: return DreamResult.Error("Bu rüya için yorum yapılamadı. Biraz farklı anlatmayı deneyin.", false)
-        val sb = StringBuilder()
-        for (i in 0 until parts.length()) {
-            val p = parts.optJSONObject(i) ?: continue
-            if (p.optBoolean("thought", false)) continue
-            sb.append(p.optString("text"))
-        }
-        val clean = sb.toString()
-            .replace(Regex("[*#_`>]"), "")
-            .replace(Regex("[ \t]+"), " ")
-            .replace(Regex("\n{3,}"), "\n\n")
-            .trim()
+    private fun finish(sb: StringBuilder): DreamResult {
+        val clean = cleanText(sb.toString())
         return if (clean.isEmpty()) {
             DreamResult.Error("Bu rüya için yorum yapılamadı. Biraz farklı anlatmayı deneyin.", false)
         } else {
             DreamResult.Ok(clean)
         }
     }
+
+    fun cleanText(s: String): String = s
+        .replace(Regex("[*#_`>]"), "")
+        .replace(Regex("[ \t]+"), " ")
+        .replace(Regex("\n{3,}"), "\n\n")
+        .trim()
 }
 
 /** Ayarlar'daki Gemini anahtarı ve son 10 rüya. */
@@ -238,11 +254,12 @@ class DreamStore(context: Context) {
 object ClaudeDreams {
     private const val MODEL = "claude-sonnet-5-5"
 
-    fun interpret(apiKey: String, prompt: String, dream: String): DreamResult {
+    fun interpret(apiKey: String, prompt: String, dream: String, onPartial: (String) -> Unit = {}): DreamResult {
         val body = JSONObject()
             .put("model", MODEL)
             .put("max_tokens", 2048)
             .put("temperature", 0.7)
+            .put("stream", true)
             .put("system", prompt)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream")))
         val conn = try {
@@ -250,39 +267,59 @@ object ClaudeDreams {
         } catch (e: IOException) {
             return DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         }
+        val sb = StringBuilder()
         return try {
             conn.requestMethod = "POST"
             conn.connectTimeout = 15_000
-            conn.readTimeout = 90_000
+            conn.readTimeout = 40_000 // iki parça arası en fazla
             conn.doOutput = true
             conn.setRequestProperty("content-type", "application/json")
             conn.setRequestProperty("x-api-key", apiKey)
             conn.setRequestProperty("anthropic-version", "2023-06-01")
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
-            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
-                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            when {
-                code in 200..299 -> {
-                    val content = JSONObject(text).optJSONArray("content") ?: JSONArray()
-                    val sb = StringBuilder()
-                    for (i in 0 until content.length()) {
-                        val c = content.optJSONObject(i) ?: continue
-                        if (c.optString("type") == "text") sb.append(c.optString("text"))
-                    }
-                    val clean = sb.toString().replace(Regex("[*#_`>]"), "").replace(Regex("\n{3,}"), "\n\n").trim()
-                    if (clean.isEmpty()) DreamResult.Error("Bu rüya için yorum yapılamadı.", false)
-                    else DreamResult.Ok(clean, by = "Claude")
+            if (code !in 200..299) {
+                val text = conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                return when {
+                    code == 401 || code == 403 ->
+                        DreamResult.Error("Ayarlar'daki Claude anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
+                    code == 400 && text.contains("credit", ignoreCase = true) ->
+                        DreamResult.Error("Claude kredisi yok. Yakınınız kredi eklemeli.", false)
+                    code == 400 || code == 404 -> DreamResult.Error("Claude isteği kabul etmedi.", false)
+                    else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
                 }
-                code == 401 || code == 403 ->
-                    DreamResult.Error("Ayarlar'daki Claude anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
-                code == 400 && text.contains("credit", ignoreCase = true) ->
-                    DreamResult.Error("Claude kredisi bitti. Yakınınız kredi eklemeli.", false)
-                code == 404 -> DreamResult.Error("Claude modeli bulunamadı.", false)
-                else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true) // 429, 5xx, 529
+            }
+            var streamError: DreamResult.Error? = null
+            conn.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                for (line in lines) {
+                    if (!line.startsWith("data:")) continue
+                    val obj = runCatching { JSONObject(line.removePrefix("data:").trim()) }.getOrNull() ?: continue
+                    when (obj.optString("type")) {
+                        "content_block_delta" -> {
+                            val d = obj.optJSONObject("delta") ?: continue
+                            if (d.optString("type") == "text_delta") {
+                                sb.append(d.optString("text"))
+                                onPartial(DreamInterpreter.cleanText(sb.toString()))
+                            }
+                        }
+                        "error" -> {
+                            streamError = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
+                            break
+                        }
+                        "message_stop" -> break
+                    }
+                }
+            }
+            val clean = DreamInterpreter.cleanText(sb.toString())
+            when {
+                streamError != null && clean.length < 600 -> streamError!!
+                clean.isEmpty() -> DreamResult.Error("Bu rüya için yorum yapılamadı.", false)
+                else -> DreamResult.Ok(clean, by = "Claude")
             }
         } catch (e: IOException) {
-            DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
+            val clean = DreamInterpreter.cleanText(sb.toString())
+            if (clean.length > 600) DreamResult.Ok(clean, by = "Claude")
+            else DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         } catch (e: Exception) {
             DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         } finally {

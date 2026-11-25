@@ -111,6 +111,8 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     var notice by remember { mutableStateOf<String?>(null) }
     var speaking by remember { mutableStateOf(false) }
     var preparing by remember { mutableStateOf(false) }
+    var liveReading by remember { mutableStateOf("") }
+    val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
 
     // --- Seslendirme: Gemini doğal sesi, olmazsa telefonun en iyi Türkçe sesi ---
     val tts = remember {
@@ -125,8 +127,12 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
 
     fun interpret(dream: String) {
         phase = Phase.Thinking
+        liveReading = ""
         scope.launch {
-            when (val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, dream)) {
+            val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, dream) { text ->
+                mainHandler.post { liveReading = text }
+            }
+            when (r) {
                 is DreamResult.Ok -> {
                     val entry = DreamEntry(System.currentTimeMillis(), dream, r.text, r.by)
                     store.add(entry)
@@ -319,7 +325,8 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
 
             Phase.Thinking -> {
                 TextCard(title = "Rüyanız", text = transcript, small = true)
-                Row(
+                if (liveReading.isNotBlank()) TextCard(title = "Yorumu yazılıyor…", text = liveReading, highlight = true)
+                if (liveReading.isBlank()) Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
