@@ -109,6 +109,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     var transcript by remember { mutableStateOf("") }
     var partial by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf<String?>(null) }
+    var micReady by remember { mutableStateOf(false) }
     var speaking by remember { mutableStateOf(false) }
     var preparing by remember { mutableStateOf(false) }
     var liveReading by remember { mutableStateOf("") }
@@ -176,6 +177,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                 partial = ""
                 if (text.isNotBlank()) transcript = (transcript + " " + text).trim()
             },
+            onReady = { micReady = it },
             onStopped = { reason ->
                 partial = ""
                 if (phase == Phase.Finishing || phase == Phase.Listening) {
@@ -204,7 +206,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) {
             phase = Phase.Listening
-            listener.start()
+            listener.start(delayMs = 300L)
         } else {
             notice = "Rüyayı dinleyebilmem için mikrofon izni gerekiyor."
         }
@@ -232,8 +234,10 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
             micPermission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
+        // Az önce yorum okunduysa hoparlör sussun, sonra mikrofon açılsın (çakışmasın).
+        val wait = if (speaking || preparing || phase is Phase.Answer) 600L else 200L
         phase = Phase.Listening
-        listener.start()
+        listener.start(delayMs = wait)
     }
 
     // Ekran kendiliğinden kararmasın: anlatırken, yorum beklenirken, okunurken ve okuma
@@ -318,7 +322,11 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     BigMicButton(listening = p == Phase.Listening) { }
                 }
                 Text(
-                    if (p == Phase.Listening) "Dinliyorum… Rahatça anlatın." else "Bir saniye…",
+                    when {
+                        p != Phase.Listening -> "Bir saniye…"
+                        micReady -> "Dinliyorum… Rahatça anlatın."
+                        else -> "Mikrofon açılıyor…"
+                    },
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = DreamPurple,
@@ -374,6 +382,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
             }
 
             is Phase.Answer -> {
+                notice?.let { InfoCard(it) }
                 TextCard(title = "Rüyanız", text = p.entry.dream, small = true)
                 val (mainText, questions) = com.annem.launcher.DreamQuestions.split(p.entry.reading)
                 TextCard(title = "Yorumu", text = mainText, highlight = true)
@@ -412,7 +421,6 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                         Text(if (asks) "Soruları yanıtla" else "Ayrıntı ekle", fontSize = 24.sp, fontWeight = FontWeight.Black)
                     }
                 }
-                notice?.let { InfoCard(it) }
                 NewDreamButton {
                     // Tek dokunuşla doğrudan dinlemeye başla.
                     tts.stop()
@@ -584,18 +592,25 @@ private fun DreamHistory(store: DreamStore, onOpen: (DreamEntry) -> Unit) {
 /**
  * Sürekli dinleme: Android konuşma tanıma her duraklamada durur; anne "Bitti"ye basana kadar
  * yeniden başlatılır ve parçalar birleştirilir. Uzun sessizlikte kendiliğinden biter.
+ *
+ * Her tanıyıcı oturumunun kendi dinleyicisi ve "nesil" numarası var: kapatılan eski oturumdan
+ * gelen geç hata haberleri yenisini bozmasın. Geçici hatalarda (meşgul, ses, bağlantı kopması)
+ * kısa bekleyip birkaç kez yeniden denenir; ekran dinleme modundan hemen çıkmaz.
  */
 private class DreamListener(
     context: Context,
     private val onPartial: (String) -> Unit,
     private val onFinal: (String) -> Unit,
     private val onStopped: (reason: String?) -> Unit,
+    private val onReady: (Boolean) -> Unit = {},
 ) {
     private val app = context.applicationContext
     private var recognizer: SpeechRecognizer? = null
+    private var generation = 0
     private var active = false     // anne hâlâ anlatıyor
     private var finishing = false  // "Bitti"ye basıldı, son parça bekleniyor
     private var silentRounds = 0
+    private var failures = 0
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     private val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -605,20 +620,24 @@ private class DreamListener(
         .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L)
         .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L)
 
-    private val listener = object : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) = Unit
-        override fun onBeginningOfSpeech() { silentRounds = 0 }
+    private fun newListener(myGen: Int) = object : RecognitionListener {
+        private fun current() = myGen == generation && active
+
+        override fun onReadyForSpeech(params: Bundle?) { if (current()) { failures = 0; onReady(true) } }
+        override fun onBeginningOfSpeech() { if (current()) silentRounds = 0 }
         override fun onRmsChanged(rmsdB: Float) = Unit
         override fun onBufferReceived(buffer: ByteArray?) = Unit
         override fun onEndOfSpeech() = Unit
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
 
         override fun onPartialResults(partialResults: Bundle?) {
+            if (!current()) return
             val t = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
             if (t.isNotBlank()) onPartial(t)
         }
 
         override fun onResults(results: Bundle?) {
+            if (!current()) return
             val t = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
             onFinal(t)
             if (t.isNotBlank()) silentRounds = 0
@@ -626,20 +645,32 @@ private class DreamListener(
         }
 
         override fun onError(error: Int) {
+            if (!current()) return
+            onReady(false)
             when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
                     silentRounds++
                     continueOrStop()
                 }
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY, SpeechRecognizer.ERROR_CLIENT -> {
-                    // Tanıyıcı takıldı: yenisini oluşturup devam et.
-                    if (active && !finishing) { recreate(); main.postDelayed({ listenAgain() }, 300) } else end(null)
-                }
-                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
-                    end("İnternet bağlantısı zayıf, sesiniz anlaşılamadı. Tekrar deneyin.")
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> end("Mikrofon izni gerekiyor.")
-                else -> end("Mikrofon açılamadı (kod $error). Tekrar deneyin.")
+                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
+                    retryOrEnd(error, "İnternet bağlantısı zayıf, sesiniz anlaşılamadı. Tekrar deneyin.")
+                else -> retryOrEnd(error, "Mikrofon açılamadı (kod $error). Tekrar deneyin.")
             }
+        }
+    }
+
+    /** Geçici hata: yeni oturumla birkaç kez yeniden dene, olmazsa sebebiyle bitir. */
+    private fun retryOrEnd(error: Int, message: String) {
+        if (finishing) { end(null); return }
+        failures++
+        if (failures <= 4) {
+            val myGen = ++generation
+            recognizer?.runCatching { destroy() }
+            recognizer = null
+            main.postDelayed({ if (myGen == generation && active) { createRecognizer(myGen); listenAgain() } }, 500L * failures)
+        } else {
+            end(message)
         }
     }
 
@@ -649,20 +680,26 @@ private class DreamListener(
     }
 
     private fun listenAgain() {
-        try { recognizer?.startListening(intent) } catch (e: Exception) { end(null) }
+        try { recognizer?.startListening(intent) } catch (e: Exception) { retryOrEnd(-1, "Mikrofon açılamadı. Tekrar deneyin.") }
     }
 
-    private fun recreate() {
-        recognizer?.destroy()
-        recognizer = SpeechRecognizer.createSpeechRecognizer(app).also { it.setRecognitionListener(listener) }
+    private fun createRecognizer(myGen: Int) {
+        recognizer = SpeechRecognizer.createSpeechRecognizer(app).also { it.setRecognitionListener(newListener(myGen)) }
     }
 
-    fun start() {
+    /** Dinlemeye başla. delayMs: az önce ses çalındıysa hoparlörün susması için bekle. */
+    fun start(delayMs: Long = 0L) {
         active = true
         finishing = false
         silentRounds = 0
-        recreate()
-        listenAgain()
+        failures = 0
+        onReady(false)
+        val myGen = ++generation
+        recognizer?.runCatching { destroy() }
+        recognizer = null
+        main.postDelayed({
+            if (myGen == generation && active) { createRecognizer(myGen); listenAgain() }
+        }, delayMs)
     }
 
     /** "Bitti": son parçayı al, sonra dur. */
@@ -671,12 +708,15 @@ private class DreamListener(
         finishing = true
         try { recognizer?.stopListening() } catch (e: Exception) { end(null) }
         // Tanıyıcı yanıt vermezse en geç 4 sn sonra elde olanla devam et.
-        main.postDelayed({ if (active) end(null) }, 4000)
+        val myGen = generation
+        main.postDelayed({ if (active && myGen == generation) end(null) }, 4000)
     }
 
     fun cancel() {
         active = false
         finishing = false
+        generation++
+        onReady(false)
         try { recognizer?.cancel() } catch (_: Exception) {}
     }
 
@@ -684,6 +724,8 @@ private class DreamListener(
         if (!active) return
         active = false
         finishing = false
+        generation++
+        onReady(false)
         try { recognizer?.cancel() } catch (_: Exception) {}
         onStopped(reason)
     }
@@ -691,7 +733,7 @@ private class DreamListener(
     fun destroy() {
         cancel()
         main.removeCallbacksAndMessages(null)
-        recognizer?.destroy()
+        recognizer?.runCatching { destroy() }
         recognizer = null
     }
 }
