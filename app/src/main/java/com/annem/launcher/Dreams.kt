@@ -111,8 +111,8 @@ NASIL YORUMLAYACAKSIN:
 - "Düğün:" ya da "Gelin:" gibi iki noktalı başlıklar, tırnak işaretleri ve "şimdi bu öğeleri tek tek ele alalım", "temel öğeler şunlar" gibi düzen cümleleri YAZMA. Öğeleri akıcı paragrafların içinde, bir büyüğün sohbet ederken anlattığı gibi anlat.
 - Psikoloji dili kullanma (özsaygı, duygusal boşalma, bilinçaltı, içsel güzellik, enerji gibi); klasik tabir kitaplarının ve Anadolu'nun dilini kullan: "hayra yorulur", "müjdedir", "ferahlığa işarettir" gibi.
 - Rüya sahibine olumsuz duygu ya da dert yakıştırma ("kalbinizde hüzün var" gibi); bilmediğin şeyi onun hayatı hakkında kesin söyleme.
-- Metin bir rüya değilse ya da hiç anlaşılmıyorsa, nazikçe rüyayı biraz daha ayrıntılı anlatmasını iste.
-- Rüya yorumlanabiliyor ama yorumu değiştirecek önemli bir ayrıntı eksikse (örneğin "biri bir şey uzattı" denmiş ama kimin, neyi uzattığı belli değilse), önce bildiklerinle yorumla, en sonda da bu eksikler için en fazla iki kısa ve sade soru sor. Ayrıntı eksik değilse soru sorma.
+- Metin bir rüya değilse ya da hiç anlaşılmıyorsa, kısa ve nazik bir cümle yaz, sonra SORULAR: satırının altında rüyayı biraz daha anlatmasını isteyen tek bir soru sor.
+- Rüya yorumlanabiliyor ama yorumu değiştirecek önemli bir ayrıntı eksikse (örneğin "biri bir şey uzattı" denmiş ama kimin, neyi uzattığı belli değilse), önce bildiklerinle yorumla. Sonra yorumun EN SONUNA ayrı bir satırda yalnızca SORULAR: yaz ve altına en fazla iki kısa, sade soruyu her biri ayrı satırda ve soru işaretiyle bitecek şekilde yaz. Yorumun içinde ayrıca ayrıntı isteme ("detaylandırırsanız daha iyi yorumlarım" gibi cümleler kurma). Ayrıntı eksik değilse SORULAR bölümü yazma.
 
 ÖRNEK (yalnızca derinlik ve üslup için; kelimesi kelimesine kopyalama):
 Rüya: "Bahçede bir yılan gördüm ama bana bir şey yapmadı, gitti."
@@ -260,7 +260,7 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
     fun cleanText(s: String): String = s
         .replace(Regex("(?m)^\\s*[-•–]\\s+"), "")       // madde işaretleri
         .replace(Regex("(?m)^\\s*\\d+[.)]\\s+"), "")   // numaralı satırlar
-        .replace(Regex("(?m)^\\s*[A-ZÇĞİÖŞÜ][^:\\n.]{0,40}:\\s+(?=[A-ZÇĞİÖŞÜ])"), "") // "Düğün: ..." başlıkları
+        .replace(Regex("(?m)^\\s*(?!SORULAR)[A-ZÇĞİÖŞÜ][^:\\n.]{0,40}:[ \\t]+(?=[A-ZÇĞİÖŞÜ])"), "") // "Düğün: ..." başlıkları
         .replace(Regex("[“”„\"«»]"), "")
         .replace(Regex("[*#_`>]"), "")
         .replace(Regex("[ \t]+"), " ")
@@ -343,6 +343,37 @@ class DreamStore(context: Context) {
     }
 }
 
+
+/** Yorumu ve sonundaki soruları ayırır ("SORULAR:" bölümü; yoksa son kısımdaki soru/istek cümleleri). */
+object DreamQuestions {
+    private val marker = Regex("(?im)^\\s*SORULAR\\s*:?\\s*$|\\bSORULAR\\s*:")
+    private val askHints = listOf("detaylandırırsanız", "ayrıntı verirseniz", "anlatırsanız", "anlatır mısınız",
+        "söyler misiniz", "verir misiniz", "hatırlıyor musunuz", "biraz daha anlat")
+
+    /** (yorum, sorular) */
+    fun split(reading: String): Pair<String, List<String>> {
+        val m = marker.find(reading)
+        if (m != null) {
+            val main = reading.substring(0, m.range.first).trim()
+            val qs = reading.substring(m.range.last + 1)
+                .split(Regex("\\n|(?<=\\?)\\s+")).map { it.trim().trimStart('-', '•', ' ') }.filter { it.length > 3 }
+            return main to qs.take(3)
+        }
+        // İşaret yoksa: son iki paragraftaki soru ya da ayrıntı isteyen cümleler.
+        val paras = reading.trim().split(Regex("\\n\\s*\\n"))
+        val tail = paras.takeLast(2).joinToString(" ")
+        val sentences = tail.split(Regex("(?<=[.!?…])\\s+"))
+        val qs = sentences.filter { s -> s.trim().endsWith("?") || askHints.any { it in s.lowercase() } }
+        return reading.trim() to qs.map { it.trim() }.take(3)
+    }
+
+    /** Sesli okunacak metin: yorum, sonra "Size sormak istediklerim:" ve sorular. */
+    fun speech(reading: String): String {
+        val (main, qs) = split(reading)
+        val hasMarker = marker.containsMatchIn(reading)
+        return if (hasMarker && qs.isNotEmpty()) main + "\n\nSize sormak istediklerim: " + qs.joinToString(" ") else main
+    }
+}
 
 /** Anthropic Claude ile yorum (Ayarlar'da Claude anahtarı girildiyse). */
 object ClaudeDreams {

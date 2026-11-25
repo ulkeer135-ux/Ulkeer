@@ -140,7 +140,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     store.add(entry)
                     followUpFor = null
                     phase = Phase.Answer(entry)
-                    tts.speak(r.text, entry.time)
+                    tts.speak(com.annem.launcher.DreamQuestions.speech(r.text), entry.time)
                 }
                 is DreamResult.Error -> phase = Phase.Failed(answer, r.message, r.retryable, r.detail)
             }
@@ -160,7 +160,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     val entry = DreamEntry(System.currentTimeMillis(), dream, r.text, r.by)
                     store.add(entry)
                     phase = Phase.Answer(entry)
-                    tts.speak(r.text, entry.time)
+                    tts.speak(com.annem.launcher.DreamQuestions.speech(r.text), entry.time)
                 }
                 is DreamResult.Error -> phase = Phase.Failed(dream, r.message, r.retryable, r.detail)
             }
@@ -305,7 +305,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                 notice?.let { InfoCard(it) }
                 DreamHistory(store, onOpen = { entry ->
                     phase = Phase.Answer(entry)
-                    tts.speak(entry.reading, entry.time)
+                    tts.speak(com.annem.launcher.DreamQuestions.speech(entry.reading), entry.time)
                 })
             }
 
@@ -322,7 +322,8 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 )
                 followUpFor?.let {
-                    if (asksQuestions(it.reading)) TextCard(title = "Sorular", text = questionsOf(it.reading), small = true)
+                    val qs = com.annem.launcher.DreamQuestions.split(it.reading).second
+                    if (qs.isNotEmpty()) QuestionsCard(qs)
                     else TextCard(title = "Rüyanız", text = it.dream, small = true)
                 }
                 val shown = (transcript + " " + partial).trim()
@@ -370,7 +371,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
 
             is Phase.Answer -> {
                 TextCard(title = "Rüyanız", text = p.entry.dream, small = true)
-                TextCard(title = "Yorumu", text = p.entry.reading, highlight = true)
+                val (mainText, questions) = com.annem.launcher.DreamQuestions.split(p.entry.reading)
+                TextCard(title = "Yorumu", text = mainText, highlight = true)
+                if (questions.isNotEmpty()) QuestionsCard(questions)
                 if (preparing) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(color = DreamPurple, strokeWidth = 4.dp, modifier = Modifier.size(28.dp))
@@ -379,7 +382,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     }
                 }
                 Button(
-                    onClick = { if (speaking) tts.stop() else tts.speak(p.entry.reading, p.entry.time) },
+                    onClick = { if (speaking) tts.stop() else tts.speak(com.annem.launcher.DreamQuestions.speech(p.entry.reading), p.entry.time) },
                     modifier = Modifier.fillMaxWidth().height(68.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DreamPurple, contentColor = Color.White),
@@ -388,7 +391,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Text(if (speaking) "Okumayı durdur" else "Yorumu tekrar dinle", fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
-                val asks = asksQuestions(p.entry.reading)
+                val asks = questions.isNotEmpty()
                 run {
                     Button(
                         onClick = {
@@ -688,16 +691,20 @@ private class DreamListener(
     }
 }
 
-/** Yorum, rüya sahibinden bilgi isteyen sorularla mı bitiyor? (son kısımda soru işareti) */
-private fun asksQuestions(reading: String): Boolean {
-    val tail = reading.takeLast(500)
-    return tail.count { it == '?' } >= 1 &&
-        (reading.trimEnd().endsWith("?") || tail.contains("ayrıntı") || tail.contains("anlatır mısınız") ||
-            tail.contains("verir misiniz") || tail.contains("söyler misiniz") || tail.count { it == '?' } >= 2)
-}
-
-/** Yorumdaki soru cümleleri (dinlerken hatırlatmak için). */
-private fun questionsOf(reading: String): String {
-    val qs = reading.split(Regex("(?<=[.!?…])\\s+")).filter { it.trim().endsWith("?") }
-    return if (qs.isEmpty()) reading.takeLast(300) else qs.joinToString("\n")
+/** Yapay zekânın soruları: yorumdan ayrı, göze çarpan kart. */
+@Composable
+private fun QuestionsCard(questions: List<String>) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFFE6F4EA),
+        border = BorderStroke(2.dp, Color(0xFFB9DFC4)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Size soruyor", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Green)
+            questions.forEach { q ->
+                Text("• $q", fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+            }
+        }
+    }
 }
