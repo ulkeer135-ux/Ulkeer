@@ -37,7 +37,7 @@ object GeminiSpeech {
     const val VOICE = "Sulafat" // Google'ın "sıcak" diye tanımladığı ses
 
     // Okuma tarzı metne EKLENMEZ (yoksa model talimatı da sesli okuyor); ayrı alanda verilir.
-    private const val STYLE = "warm, calm and gentle, speaking slowly and clearly, like a kind elder"
+    private const val STYLE = "warm, calm and gentle, at a natural conversational pace, like a kind elder"
 
     // Yeni "interactions" uç noktası ve modelleri; olmazsa eski generateContent TTS modeli.
     private val INTERACTION_MODELS = listOf("gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview", "gemini-3.8-flash-lite-tts")
@@ -257,13 +257,20 @@ class DreamPlayer(
         dir.listFiles()?.forEach { f -> if (f.name.substringBefore('_').toLongOrNull() !in keep) f.delete() }
     }
 
-    /** İlk paragraf (ya da ilk birkaç cümle) ayrı, geri kalanı tek parça. */
+    /**
+     * İlk 1–2 kısa cümle ayrı (birkaç saniyede hazır olsun, okuma hemen başlasın),
+     * geri kalanı tek parça: ücretsiz günlük hakkı korumak için en fazla 2 istek.
+     */
     private fun splitTwo(text: String): List<String> {
-        val paras = text.split(Regex("\n\\s*\n")).map { it.trim() }.filter { it.isNotEmpty() }
-        if (paras.size >= 2) return listOf(paras.first(), paras.drop(1).joinToString("\n\n"))
-        val sentences = text.split(Regex("(?<=[.!?…])\\s+"))
-        if (sentences.size < 4) return listOf(text)
-        return listOf(sentences.take(2).joinToString(" "), sentences.drop(2).joinToString(" "))
+        val sentences = text.trim().split(Regex("(?<=[.!?…])\\s+")).filter { it.isNotBlank() }
+        if (sentences.size < 3) return listOf(text)
+        var first = sentences[0]
+        var i = 1
+        while (i < sentences.size - 1 && first.length + sentences[i].length < 160) {
+            first += " " + sentences[i]
+            i++
+        }
+        return listOf(first, sentences.drop(i).joinToString(" "))
     }
 }
 

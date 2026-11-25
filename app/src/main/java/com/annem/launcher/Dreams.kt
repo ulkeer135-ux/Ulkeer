@@ -140,12 +140,14 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
                     else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
                 }
             }
+            var finishReason = ""
             conn.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
                 lines.forEach { line ->
                     if (!line.startsWith("data:")) return@forEach
                     val obj = runCatching { JSONObject(line.removePrefix("data:").trim()) }.getOrNull() ?: return@forEach
-                    val parts = obj.optJSONArray("candidates")?.optJSONObject(0)
-                        ?.optJSONObject("content")?.optJSONArray("parts") ?: return@forEach
+                    val cand = obj.optJSONArray("candidates")?.optJSONObject(0) ?: return@forEach
+                    cand.optString("finishReason", "").takeIf { it.isNotEmpty() }?.let { finishReason = it }
+                    val parts = cand.optJSONObject("content")?.optJSONArray("parts") ?: return@forEach
                     for (i in 0 until parts.length()) {
                         val part = parts.optJSONObject(i) ?: continue
                         if (part.optBoolean("thought", false)) continue
@@ -154,7 +156,13 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
                     onPartial(cleanText(sb.toString()))
                 }
             }
-            finish(sb)
+            // Yalnızca düzgün biten yorumu kabul et; Google bazen yarıda kesiyor
+            // (SAFETY, RECITATION, OTHER ya da bağlantı sonu): o zaman yeniden denenir.
+            when {
+                finishReason == "STOP" -> finish(sb)
+                finishReason == "MAX_TOKENS" && sb.length > 600 -> finish(sb)
+                else -> DreamResult.Error("Yorum yarım kaldı. Tekrar deneyin.", true)
+            }
         } catch (e: IOException) {
             // Yarıda koptuysa ve yorumun çoğu geldiyse onu kullan.
             if (sb.length > 600) finish(sb) else DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
@@ -290,6 +298,7 @@ object ClaudeDreams {
                 }
             }
             var streamError: DreamResult.Error? = null
+            var stopReason = ""
             conn.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
                 for (line in lines) {
                     if (!line.startsWith("data:")) continue
@@ -301,6 +310,10 @@ object ClaudeDreams {
                                 sb.append(d.optString("text"))
                                 onPartial(DreamInterpreter.cleanText(sb.toString()))
                             }
+                        }
+                        "message_delta" -> {
+                            obj.optJSONObject("delta")?.optString("stop_reason", "")
+                                ?.takeIf { it.isNotEmpty() && it != "null" }?.let { stopReason = it }
                         }
                         "error" -> {
                             streamError = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
@@ -314,7 +327,9 @@ object ClaudeDreams {
             when {
                 streamError != null && clean.length < 600 -> streamError!!
                 clean.isEmpty() -> DreamResult.Error("Bu rüya için yorum yapılamadı.", false)
-                else -> DreamResult.Ok(clean, by = "Claude")
+                stopReason == "end_turn" || stopReason == "stop_sequence" -> DreamResult.Ok(clean, by = "Claude")
+                stopReason == "max_tokens" && clean.length > 600 -> DreamResult.Ok(clean, by = "Claude")
+                else -> DreamResult.Error("Yorum yarım kaldı. Tekrar deneyin.", true)
             }
         } catch (e: IOException) {
             val clean = DreamInterpreter.cleanText(sb.toString())
