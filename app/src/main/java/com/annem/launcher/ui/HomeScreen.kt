@@ -44,6 +44,8 @@ import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -98,6 +100,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
+    var moreOpen by remember { mutableStateOf(false) }
     // Cihaz yöneticisi onay ekranı: sonuç gelince kurulduysa haber ver.
     val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         ScreenLock.reportActivation(context)
@@ -186,6 +189,8 @@ fun HomeScreen(
             }
         }
 
+        MoreHandle(onOpen = { moreOpen = true })
+
         LockButton(onClick = {
             val result = ScreenLock.lock(context)
             if (result != LockResult.LOCKED) lockProblem = result
@@ -193,6 +198,14 @@ fun HomeScreen(
     }
     }
 
+    if (moreOpen) {
+        MoreSheet(
+            store = store,
+            onDismiss = { moreOpen = false },
+            onPickApp = { id -> moreOpen = false; onPickApp(id) },
+            onOpenDreams = { moreOpen = false; onOpenDreams() },
+        )
+    }
     lockProblem?.let { problem ->
         AlertDialog(
             onDismissRequest = { lockProblem = null },
@@ -517,5 +530,78 @@ private fun LockButton(onClick: () -> Unit) {
         Icon(Icons.Rounded.NightsStay, contentDescription = null, tint = Palette.Moon, modifier = Modifier.size(34.dp))
         Spacer(Modifier.width(12.dp))
         Text("Ekranı Kapat", fontSize = 27.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+/** Ekranı Kapat'ın üstündeki küçük tutamaç: dokun ya da yukarı kaydır → "Daha fazla" çekmecesi. */
+@Composable
+private fun MoreHandle(onOpen: () -> Unit) {
+    Surface(
+        onClick = onOpen,
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        border = BorderStroke(1.5.dp, Palette.EmptyLine),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .pointerInput(Unit) {
+                var total = 0f
+                androidx.compose.foundation.gestures.detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onVerticalDrag = { _, dy -> total += dy; if (total < -40f) { total = 0f; onOpen() } },
+                )
+            },
+    ) {
+        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Daha fazla", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft)
+        }
+    }
+}
+
+/** Alttan açılan çekmece: 3 uygulama kutusu. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MoreSheet(
+    store: SettingsStore,
+    onDismiss: () -> Unit,
+    onPickApp: (String) -> Unit,
+    onOpenDreams: () -> Unit,
+) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Palette.Cream,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("Daha fazla", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+            val colors = listOf(
+                Triple(Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon),
+                Triple(Palette.CamBg, Palette.CamLine, Palette.CamIcon),
+                Triple(Palette.PicBg, Palette.PicLine, Palette.PicIcon),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().height(160.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Slots.MORE.forEachIndexed { i, id ->
+                    val (bg, line, icon) = colors[i]
+                    SlotTile(
+                        store, id, bg, line, icon, Modifier.weight(1f).fillMaxHeight(),
+                        onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams,
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                shape = RoundedCornerShape(18.dp),
+            ) { Text("Kapat", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Ink) }
+        }
     }
 }

@@ -29,7 +29,14 @@ object Slots {
     /** 6 kutulu düzende 3, 9 kutulu düzende 6 seçilebilir kutu var. */
     fun visible(nineTiles: Boolean): List<String> = if (nineTiles) ALL else ALL.take(3)
 
-    fun title(id: String): String = "${ALL.indexOf(id) + 1}. kutu"
+    /** "Daha fazla" çekmecesindeki 3 kutu (ana ekran düzeninden bağımsız). */
+    const val MORE1 = "more1"
+    const val MORE2 = "more2"
+    const val MORE3 = "more3"
+    val MORE = listOf(MORE1, MORE2, MORE3)
+
+    fun title(id: String): String =
+        if (id in MORE) "Daha fazla ${MORE.indexOf(id) + 1}. kutu" else "${ALL.indexOf(id) + 1}. kutu"
 }
 
 /** Bir kutuya atanmış uygulama ve kutuda görünecek yazı. */
