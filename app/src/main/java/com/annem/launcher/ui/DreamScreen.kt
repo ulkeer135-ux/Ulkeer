@@ -321,7 +321,10 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                followUpFor?.let { TextCard(title = "Sorular", text = questionsOf(it.reading), small = true) }
+                followUpFor?.let {
+                    if (asksQuestions(it.reading)) TextCard(title = "Sorular", text = questionsOf(it.reading), small = true)
+                    else TextCard(title = "Rüyanız", text = it.dream, small = true)
+                }
                 val shown = (transcript + " " + partial).trim()
                 if (shown.isNotEmpty()) TextCard(title = if (followUpFor != null) "Cevabınız" else "Anlattığınız", text = shown)
                 Button(
@@ -385,7 +388,8 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Text(if (speaking) "Okumayı durdur" else "Yorumu tekrar dinle", fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
-                if (asksQuestions(p.entry.reading)) {
+                val asks = asksQuestions(p.entry.reading)
+                run {
                     Button(
                         onClick = {
                             tts.stop()
@@ -398,7 +402,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                     ) {
                         Icon(Icons.Rounded.Mic, contentDescription = null, modifier = Modifier.size(30.dp))
                         Spacer(Modifier.width(10.dp))
-                        Text("Soruları yanıtla", fontSize = 24.sp, fontWeight = FontWeight.Black)
+                        Text(if (asks) "Soruları yanıtla" else "Ayrıntı ekle", fontSize = 24.sp, fontWeight = FontWeight.Black)
                     }
                 }
                 notice?.let { InfoCard(it) }

@@ -111,7 +111,8 @@ NASIL YORUMLAYACAKSIN:
 - "Düğün:" ya da "Gelin:" gibi iki noktalı başlıklar, tırnak işaretleri ve "şimdi bu öğeleri tek tek ele alalım", "temel öğeler şunlar" gibi düzen cümleleri YAZMA. Öğeleri akıcı paragrafların içinde, bir büyüğün sohbet ederken anlattığı gibi anlat.
 - Psikoloji dili kullanma (özsaygı, duygusal boşalma, bilinçaltı, içsel güzellik, enerji gibi); klasik tabir kitaplarının ve Anadolu'nun dilini kullan: "hayra yorulur", "müjdedir", "ferahlığa işarettir" gibi.
 - Rüya sahibine olumsuz duygu ya da dert yakıştırma ("kalbinizde hüzün var" gibi); bilmediğin şeyi onun hayatı hakkında kesin söyleme.
-- Metin bir rüya değilse ya da çok kısa ve anlaşılmazsa, nazikçe rüyayı biraz daha ayrıntılı anlatmasını iste.
+- Metin bir rüya değilse ya da hiç anlaşılmıyorsa, nazikçe rüyayı biraz daha ayrıntılı anlatmasını iste.
+- Rüya yorumlanabiliyor ama yorumu değiştirecek önemli bir ayrıntı eksikse (örneğin "biri bir şey uzattı" denmiş ama kimin, neyi uzattığı belli değilse), önce bildiklerinle yorumla, en sonda da bu eksikler için en fazla iki kısa ve sade soru sor. Ayrıntı eksik değilse soru sorma.
 
 ÖRNEK (yalnızca derinlik ve üslup için; kelimesi kelimesine kopyalama):
 Rüya: "Bahçede bir yılan gördüm ama bana bir şey yapmadı, gitti."
@@ -484,7 +485,7 @@ object GroqDreams {
             .put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream"))
             .put(JSONObject().put("role", "assistant").put("content", previous))
             .put(JSONObject().put("role", "user").put("content",
-                "Sorularınıza cevabım:\n$answer\n\nŞimdi bu bilgilerle rüyamı yorumlar mısınız?")))
+                "Ek bilgi (sorularınıza cevabım ya da hatırladığım ayrıntılar):\n$answer\n\nŞimdi bu bilgilerle rüyamı yeniden, eksiksiz yorumlar mısınız?")))
 
     private fun run(apiKey: String, messages: JSONArray): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
