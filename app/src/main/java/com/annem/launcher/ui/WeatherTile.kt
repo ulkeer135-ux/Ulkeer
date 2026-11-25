@@ -164,6 +164,8 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                 // Kart kısa kalırsa (küçük ekran) konum satırı gizlenir; hiçbir yazı kesilmez.
                 val showPlace = maxHeight >= 116.dp
                 val bigCard = maxHeight >= 140.dp
+                // Çok kısa kart (Daha fazla şeridiyle 9 kutu): durum yazısı sıcaklığın sağına geçer.
+                val sideText = maxHeight < 112.dp
                 val tempSp = if (bigCard) 54f else 44f
                 if (look.stars) {
                     // Gece: birkaç küçük yıldız (süs).
@@ -200,9 +202,20 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                                     Text("↓ ${current.min}°", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Palette.OnSkySoft, lineHeight = 22.sp)
                                 }
                             }
+                            if (sideText) {
+                                Spacer(Modifier.width(14.dp))
+                                FitText(
+                                    text = description,
+                                    maxSp = 22f,
+                                    minSp = 13f,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                         // 2. satır: durum, gerekirse küçülerek tam sığar
-                        FitText(
+                        if (!sideText) FitText(
                             text = description,
                             maxSp = 23f,
                             minSp = 15f,
