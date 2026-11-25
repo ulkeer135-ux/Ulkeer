@@ -129,7 +129,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
         phase = Phase.Thinking
         liveReading = ""
         scope.launch {
-            val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, dream) { text ->
+            val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, store.groqKey.value, dream) { text ->
                 mainHandler.post { liveReading = text }
             }
             when (r) {

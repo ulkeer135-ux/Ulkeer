@@ -26,7 +26,13 @@ data class DreamEntry(val time: Long, val dream: String, val reading: String, va
 /** Yorum sonucu: ya metin ya da anneye gösterilecek sade bir hata. */
 sealed interface DreamResult {
     data class Ok(val text: String, val by: String = "") : DreamResult
-    data class Error(val message: String, val retryable: Boolean, val detail: String = "") : DreamResult
+    data class Error(
+        val message: String,
+        val retryable: Boolean,
+        val detail: String = "",
+        /** Kota doldu: aynı modeli yeniden denemek hakkı boşa harcar, sıradakine geç. */
+        val quota: Boolean = false,
+    ) : DreamResult
 }
 
 /**
@@ -111,11 +117,14 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
     suspend fun interpret(
         geminiKey: String,
         claudeKey: String,
+        groqKey: String,
         dream: String,
         onPartial: (String) -> Unit = {},
     ): DreamResult = withContext(Dispatchers.IO) {
+        // Sıra: Claude (ücretli, en iyi) → Groq (ücretsiz, çok hızlı) → Gemini (ücretsiz).
         val services = buildList<suspend () -> DreamResult> {
             if (claudeKey.isNotBlank()) add { ClaudeDreams.interpret(claudeKey.trim(), PROMPT, dream, onPartial) }
+            if (groqKey.isNotBlank()) add { GroqDreams.interpret(groqKey.trim(), PROMPT, dream) }
             if (geminiKey.isNotBlank()) add { gemini(geminiKey.trim(), dream, onPartial) }
         }
         if (services.isEmpty()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da anahtar girilmeli.", false)
@@ -128,7 +137,8 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
                 onPartial("")
                 last = service()
                 if (last is DreamResult.Ok) return@withContext last
-                if (!(last as DreamResult.Error).retryable) break // anahtar/kredi sorunu: diğer servise geç
+                val err = last as DreamResult.Error
+                if (!err.retryable || err.quota) break // anahtar/kredi/kota sorunu: diğer servise geç
             }
         }
         (last as? DreamResult.Error)?.copy(detail = trace.joinToString(" · ")) ?: last
@@ -184,7 +194,7 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
                     DreamResult.Error("Ayarlar'daki rüya anahtarı geçersiz. Yakınınız kontrol etmeli.", false)
                 code == 401 || code == 403 ->
                     DreamResult.Error("Ayarlar'daki rüya anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
-                code == 429 -> DreamResult.Error("Bugünlük ücretsiz yorum hakkı doldu. Yarın tekrar deneyin.", true)
+                code == 429 -> DreamResult.Error("Bugünlük ücretsiz yorum hakkı doldu. Yarın tekrar deneyin.", true, quota = true)
                 else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
             }
         } catch (e: IOException) {
@@ -246,7 +256,14 @@ class DreamStore(context: Context) {
     }
 
     /** Herhangi bir yorum servisi kurulu mu? */
-    val ready: Boolean get() = apiKey.value.isNotBlank() || claudeKey.value.isNotBlank()
+    val groqKey = mutableStateOf(prefs.getString("groq_key", "").orEmpty())
+
+    fun updateGroqKey(key: String) {
+        groqKey.value = key.trim()
+        prefs.edit().putString("groq_key", key.trim()).apply()
+    }
+
+    val ready: Boolean get() = apiKey.value.isNotBlank() || claudeKey.value.isNotBlank() || groqKey.value.isNotBlank()
     val history = mutableStateListOf<DreamEntry>().apply { addAll(loadHistory()) }
 
     /** Yorumu Gemini'nin doğal sesiyle oku (kapalıysa telefonun sesi). */
@@ -379,6 +396,116 @@ object ClaudeDreams {
             val clean = DreamInterpreter.cleanText(sb.toString())
             if (clean.length > 600) DreamResult.Ok(clean, by = "Claude")
             else DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
+        } catch (e: Exception) {
+            DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
+        } finally {
+            conn.disconnect()
+        }
+    }
+}
+
+
+/**
+ * Groq ile yorum (ücretsiz, kredi kartı istemez, çok hızlı). Açık modeller çalıştırır;
+ * anahtarın erişebildiği modeller günde bir kez öğrenilir, en uygun olanı seçilir.
+ */
+object GroqDreams {
+    private const val BASE = "https://api.groq.com/openai/v1"
+
+    // Tercih sırası: yazım kalitesi yüksek, çok dilli büyük modeller önce.
+    private val PREFERRED = listOf("kimi-k2", "gpt-oss-120b", "qwen", "llama-3.3-70b", "llama-4")
+
+    @Volatile private var models: List<String> = emptyList()
+    @Volatile private var modelsAt = 0L
+
+    private fun pickModels(apiKey: String): List<String> {
+        val now = System.currentTimeMillis()
+        if (models.isEmpty() || now - modelsAt > 24 * 3600_000L) {
+            runCatching {
+                val conn = URL("$BASE/models").openConnection() as HttpURLConnection
+                try {
+                    conn.connectTimeout = 10_000
+                    conn.readTimeout = 15_000
+                    conn.setRequestProperty("Authorization", "Bearer $apiKey")
+                    if (conn.responseCode in 200..299) {
+                        val arr = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("data") ?: JSONArray()
+                        val ids = (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("id") }
+                            .filter { id ->
+                                listOf("whisper", "tts", "guard", "playai", "orpheus", "compound", "allam", "embed").none { it in id }
+                            }
+                        val ranked = PREFERRED.flatMap { p -> ids.filter { p in it }.sortedDescending() }.distinct()
+                        models = ranked.take(3)
+                        modelsAt = now
+                    }
+                } finally { conn.disconnect() }
+            }
+        }
+        return models.ifEmpty { listOf("openai/gpt-oss-120b", "llama-3.3-70b-versatile") }
+    }
+
+    fun interpret(apiKey: String, prompt: String, dream: String): DreamResult {
+        var last: DreamResult = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
+        for (model in pickModels(apiKey)) {
+            last = call(apiKey, model, prompt, dream)
+            if (last is DreamResult.Ok) return last
+            if (last is DreamResult.Error && !(last as DreamResult.Error).retryable && !(last as DreamResult.Error).quota) return last
+        }
+        return last
+    }
+
+    private fun call(apiKey: String, model: String, prompt: String, dream: String): DreamResult {
+        val body = JSONObject()
+            .put("model", model)
+            .put("temperature", 0.7)
+            .put("max_completion_tokens", 4096)
+            .put(
+                "messages",
+                JSONArray()
+                    .put(JSONObject().put("role", "system").put("content", prompt))
+                    .put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream")),
+            )
+        // Düşünen modellerde düşünceyi kısa tut ve metne karıştırma.
+        if ("gpt-oss" in model) body.put("reasoning_effort", "low")
+        if ("qwen" in model) body.put("reasoning_format", "hidden")
+        val conn = try {
+            URL("$BASE/chat/completions").openConnection() as HttpURLConnection
+        } catch (e: IOException) {
+            return DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
+        }
+        return try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 60_000
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) DreamInterpreter.note("Groq $model: $code")
+            when {
+                code in 200..299 -> {
+                    val choice = JSONObject(text).optJSONArray("choices")?.optJSONObject(0)
+                    val finish = choice?.optString("finish_reason").orEmpty()
+                    val content = choice?.optJSONObject("message")?.optString("content").orEmpty()
+                        .replace(Regex("(?s)<think>.*?</think>"), "")
+                    val clean = DreamInterpreter.cleanText(content)
+                    when {
+                        clean.isEmpty() -> { DreamInterpreter.note("Groq $model: boş"); DreamResult.Error("Yorum alınamadı.", true) }
+                        finish == "stop" || (finish == "length" && clean.length > 600) -> DreamResult.Ok(clean, by = "Groq")
+                        else -> { DreamInterpreter.note("Groq $model: yarım"); DreamResult.Error("Yorum yarım kaldı. Tekrar deneyin.", true) }
+                    }
+                }
+                code == 401 || code == 403 ->
+                    DreamResult.Error("Ayarlar'daki Groq anahtarı kabul edilmedi. Yakınınız kontrol etmeli.", false)
+                code == 429 -> DreamResult.Error("Groq ücretsiz hakkı şimdilik doldu.", true, quota = true)
+                code == 400 || code == 404 -> DreamResult.Error("Groq bu modeli kabul etmedi.", true, quota = true)
+                else -> DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
+            }
+        } catch (e: IOException) {
+            DreamInterpreter.note("Groq $model: bağlantı")
+            DreamResult.Error("İnternet bağlantısı yok gibi görünüyor.", true)
         } catch (e: Exception) {
             DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
         } finally {

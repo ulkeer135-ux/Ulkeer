@@ -334,6 +334,28 @@ fun SettingsScreen(
         StatusRow("Rüya yorumu", dreams.ready, onText = "Hazır", offText = "Anahtar yok")
 
         Spacer(Modifier.height(8.dp))
+        Text("Hızlı ve ücretsiz: Groq (önerilir)", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+        Hint(
+            "Groq anahtarı girilirse yorumu Groq yazar: ücretsiz, kredi kartı istemez, günde 1.000 " +
+                "istek, yorum 1–2 saniyede gelir. Olmazsa Gemini devam eder.\n" +
+                "1. Aşağıdaki düğmeyle console.groq.com'u aç, Google hesabınla gir.\n" +
+                "2. \"Create API Key\" de, \"gsk_\" ile başlayan anahtarı kopyala, buraya yapıştır."
+        )
+        OutlinedButton(onClick = {
+            openSettings(context, Intent(Intent.ACTION_VIEW, Uri.parse("https://console.groq.com/keys")))
+        }) { Text("Groq anahtarı al", fontSize = 18.sp) }
+        var groqKey by remember { mutableStateOf(dreams.groqKey.value) }
+        OutlinedTextField(
+            value = groqKey,
+            onValueChange = { groqKey = it },
+            label = { Text("Groq API anahtarı") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(onClick = { dreams.updateGroqKey(groqKey) }) { Text("Groq anahtarını kaydet", fontSize = 18.sp) }
+        StatusRow("Groq", dreams.groqKey.value.isNotBlank(), onText = "Kullanılıyor", offText = "Kapalı")
+
+        Spacer(Modifier.height(8.dp))
         Text("Daha iyi yorum: Claude (isteğe bağlı)", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
         Hint(
             "Claude anahtarı girilirse yorumu Claude yapar (daha ayrıntılı). Claude yanıt vermezse " +
