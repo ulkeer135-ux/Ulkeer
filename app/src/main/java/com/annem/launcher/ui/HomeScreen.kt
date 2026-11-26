@@ -6,7 +6,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Favorite
@@ -197,15 +196,14 @@ fun HomeScreen(
         // Ekranı Kapat tam genişlikte; "Daha fazla" sekmesi düğmenin üst kenarına oturur
         // (yarısı kutularla düğme arasındaki boşlukta), dikeyde hiç yer kaplamaz.
         // Sekme kutulara değmesin: düğmenin üstünde küçük ek boşluk.
-        // Sekme düğmenin içinde, üst kısımda: düğme 12 dp uzadı, üstteki 12 dp boşluk kalktı → toplam yer aynı.
-        Box(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             LockButton(onClick = {
                 val result = ScreenLock.lock(context)
                 if (result != LockResult.LOCKED) lockProblem = result
             })
             MoreTab(
                 onOpen = { moreOpen = true },
-                modifier = Modifier.align(Alignment.TopCenter).offset(y = 6.dp),
+                modifier = Modifier.align(Alignment.TopCenter).offset(y = (-13).dp),
             )
         }
     }
@@ -541,10 +539,8 @@ private fun Modifier.dashedBorder(color: Color, radius: Dp): Modifier = drawBehi
 private fun LockButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(86.dp),
-        shape = RoundedCornerShape(43.dp),
-        // Üstte "Daha fazla" sekmesine yer: yazı biraz aşağıda ortalanır.
-        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 26.dp, bottom = 4.dp),
+        modifier = Modifier.fillMaxWidth().height(74.dp),
+        shape = RoundedCornerShape(37.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Palette.Ink, contentColor = Color.White),
     ) {
         Icon(Icons.Rounded.NightsStay, contentDescription = null, tint = Palette.Moon, modifier = Modifier.size(34.dp))
@@ -561,12 +557,11 @@ private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
         // Buzlu cam: yarı saydam beyaz, ince beyaz kenar; altı Ekranı Kapat'ın üstüne biner.
         shape = RoundedCornerShape(50),
         // Beyaz yazı krem zeminde de okunsun diye cam hafif koyu tonlu.
-        // Düğmenin içinde: koyu zemin üstünde hafif beyaz cam, tek renk.
-        color = Color.White.copy(alpha = 0.14f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.30f)),
+        color = Palette.Ink.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f)),
         shadowElevation = 0.dp,
         modifier = modifier
-            .height(24.dp)
+            .height(26.dp)
             .semantics { contentDescription = "Daha fazla uygulama" }
             .pointerInput(Unit) {
                 var total = 0f
