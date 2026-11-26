@@ -420,6 +420,39 @@ fun SettingsScreen(
 
         HorizontalDivider()
 
+        // --- Ekranın kendiliğinden kapanması ---
+        SectionTitle("Ekranın kendiliğinden kapanması")
+        run {
+            val act = context as? android.app.Activity
+            val timeout = remember(lifecycleState) { com.annem.launcher.ScreenAwake.timeoutMs(context) }
+            val stayOn = remember(lifecycleState) { com.annem.launcher.ScreenAwake.stayOnWhilePlugged(context) }
+            val annemOn = remember(lifecycleState) { act?.let { com.annem.launcher.ScreenAwake.annemKeepsOn(it) } ?: false }
+            Text("Telefonun kapanma süresi: " + com.annem.launcher.ScreenAwake.describeTimeout(timeout), fontSize = 18.sp, color = Palette.Ink)
+            Text(
+                if (stayOn) "\"Uyanık kal\" AÇIK: telefon şarjdayken ekran hiç kapanmaz." else "\"Uyanık kal\" kapalı ✓",
+                fontSize = 18.sp,
+                color = if (stayOn) Color(0xFFC62828) else Color(0xFF2E7D32),
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                if (annemOn) "Annem ekranı açık tutuyor (bu bir hata, bildir)." else "Annem ekranı açık tutmuyor ✓",
+                fontSize = 18.sp,
+                color = if (annemOn) Color(0xFFC62828) else Color(0xFF2E7D32),
+                fontWeight = FontWeight.Bold,
+            )
+            Hint("Süreyi telefonun Ayarlar › Ekran bölümünden değiştirebilirsin. Rüya Tabirleri açıkken ekran bilerek açık kalır.")
+            OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_DISPLAY_SETTINGS)) }) {
+                Text("Ekran ayarlarını aç", fontSize = 18.sp)
+            }
+            if (stayOn) {
+                OutlinedButton(onClick = { openSettings(context, Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }) {
+                    Text("Geliştirici seçeneklerini aç", fontSize = 18.sp)
+                }
+            }
+        }
+
+        HorizontalDivider()
+
         // --- Açılış ölçümleri ---
         SectionTitle("Açılış ölçümleri")
         Hint(

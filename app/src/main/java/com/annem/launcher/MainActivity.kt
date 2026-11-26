@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!dreamsVisible) ScreenAwake.release(this)
         visible = this
         BadgeService.ensureConnected(this)
     }
@@ -107,6 +108,10 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        /** Rüya Tabirleri ekranı açık mı (orada ekran bilerek açık tutulur). */
+        @Volatile
+        var dreamsVisible = false
+
         @Volatile
         private var visible: MainActivity? = null
 
@@ -140,6 +145,12 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
     LaunchedEffect(homeSignal) { screen = Screen.Home }
+    // Rüya Tabirleri dışındaki her ekranda: ekranı açık tutma isteği kalmasın, telefon kendi
+    // süresinde kararsın.
+    val activityForAwake = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    LaunchedEffect(screen) {
+        if (screen != Screen.Dreams) activityForAwake?.let { ScreenAwake.release(it) }
+    }
 
     // Ana ekranda geri tuşu hiçbir şey yapmaz; diğer ekranlarda bir adım geri gider.
     BackHandler {
@@ -165,7 +176,13 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                 onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
                 onOpenDreams = { screen = Screen.Dreams },
             )
-            Screen.Dreams -> DreamScreen(store = dreams, onBack = { screen = Screen.Home })
+            Screen.Dreams -> {
+                androidx.compose.runtime.DisposableEffect(Unit) {
+                    MainActivity.dreamsVisible = true
+                    onDispose { MainActivity.dreamsVisible = false }
+                }
+                DreamScreen(store = dreams, onBack = { screen = Screen.Home })
+            }
             Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(
                 store = store,
