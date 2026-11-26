@@ -608,11 +608,14 @@ private fun MoreSheet(
                 Triple(Palette.Slot4Bg, Palette.Slot4Line, Palette.Slot4Icon),
                 Triple(Palette.Slot5Bg, Palette.Slot5Line, Palette.Slot5Icon),
                 Triple(Palette.Slot6Bg, Palette.Slot6Line, Palette.Slot6Icon),
+                Triple(Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon),
+                Triple(Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon),
+                Triple(Palette.WaBg, Palette.WaLine, Palette.WaIcon),
             )
-            // 6 kutu: 3'erli iki sıra
+            // 9 kutu: 3'erli üç sıra
             Slots.MORE.chunked(3).forEachIndexed { r, row ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    modifier = Modifier.fillMaxWidth().height(136.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     row.forEachIndexed { c, id ->

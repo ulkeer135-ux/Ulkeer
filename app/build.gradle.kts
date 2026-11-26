@@ -12,8 +12,8 @@ android {
         applicationId = "com.annem.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 67
-        versionName = "2.56"
+        versionCode = 68
+        versionName = "2.57"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.
