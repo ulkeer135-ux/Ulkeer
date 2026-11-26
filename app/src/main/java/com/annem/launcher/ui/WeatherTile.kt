@@ -62,7 +62,7 @@ import com.annem.launcher.weatherDescription
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
-private const val REFRESH_MS = 30L * 60L * 1000L // 30 dakikada bir
+private const val REFRESH_MS = 2L * 60L * 60L * 1000L // 2 saatte bir
 private const val RETRY_MS = 5L * 60L * 1000L    // hata olursa 5 dakika sonra tekrar
 
 /**
@@ -100,7 +100,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
     LaunchedEffect(source, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                // Ana ekrana her dönüşte değil, veri 30 dakikadan eskiyse güncelle.
+                // Ana ekrana her dönüşte değil, veri 2 saatten eskiyse güncelle.
                 val age = System.currentTimeMillis() - (weather?.fetchedAt ?: 0L)
                 if (age in 0 until REFRESH_MS) delay(REFRESH_MS - age)
 

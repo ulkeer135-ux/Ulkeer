@@ -227,7 +227,7 @@ fun SettingsScreen(
         Slots.visible(store.tileCount == 9).forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
         Spacer(Modifier.height(8.dp))
         Text("\"Daha fazla\" çekmecesi", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
-        Hint("Ana ekranda Ekranı Kapat düğmesinin üstündeki \"Daha fazla\"ya dokununca ya da yukarı kaydırınca açılan 9 kutu.")
+        Hint("Ana ekranda Ekranı Kapat düğmesinin üstündeki \"Daha fazla\"ya dokununca ya da yukarı kaydırınca açılan 6 kutu.")
         Slots.MORE.forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
 
         HorizontalDivider()
@@ -249,7 +249,23 @@ fun SettingsScreen(
         HorizontalDivider()
 
         // --- Hava durumu ---
-        SectionTitle("Hava durumu konumu")
+        SectionTitle("Hava durumu")
+        run {
+            val at = remember(lifecycleState) { store.lastWeatherAt() }
+            val fmt = remember { java.text.SimpleDateFormat("d MMMM HH:mm", java.util.Locale.forLanguageTag("tr-TR")) }
+            Text(
+                if (at > 1_000L) "Son güncelleme: " + fmt.format(java.util.Date(at)) else "Henüz güncellenmedi",
+                fontSize = 18.sp, color = Palette.Ink, fontWeight = FontWeight.Bold,
+            )
+            Hint("Ana ekran açıkken 2 saatte bir kendiliğinden yenilenir; ekran kapalıyken internet harcamaz, açılınca eskiyse hemen yenilenir.")
+            var refreshAsked by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { store.invalidateWeather(); refreshAsked = true }) {
+                Text("Şimdi yenile", fontSize = 18.sp)
+            }
+            if (refreshAsked) Hint("Ana ekrana dönünce hemen yenilenecek.")
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("Konum", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
         if (store.useDeviceLocation) {
             StatusRow("Telefonun konumu", locationGranted, onText = "Kullanılıyor", offText = "İzin yok")
             Hint(

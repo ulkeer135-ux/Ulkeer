@@ -210,6 +210,14 @@ class SettingsStore(context: Context) {
         )
     }
 
+    /** Son başarılı hava durumu güncellemesinin zamanı (yoksa 0). */
+    fun lastWeatherAt(): Long = prefs.getLong(KEY_W_AT, 0L)
+
+    /** "Şimdi yenile": saklanan veriyi eskimiş say; ana ekran açılınca hemen yenilenir. */
+    fun invalidateWeather() {
+        if (prefs.contains(KEY_W_AT)) prefs.edit().putLong(KEY_W_AT, 1L).apply()
+    }
+
     fun cacheWeather(w: WeatherNow, source: String) {
         prefs.edit()
             .putString(KEY_W_SRC, source)
