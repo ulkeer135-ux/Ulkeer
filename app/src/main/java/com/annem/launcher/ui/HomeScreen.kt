@@ -556,8 +556,9 @@ private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
         onClick = onOpen,
         // Buzlu cam: yarı saydam beyaz, ince beyaz kenar; altı Ekranı Kapat'ın üstüne biner.
         shape = RoundedCornerShape(50),
-        color = Color.White.copy(alpha = 0.42f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.75f)),
+        // Beyaz yazı krem zeminde de okunsun diye cam hafif koyu tonlu.
+        color = Palette.Ink.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f)),
         shadowElevation = 0.dp,
         modifier = modifier
             .height(26.dp)
@@ -574,9 +575,9 @@ private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
             modifier = Modifier.padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Palette.Ink.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(3.dp))
-            Text("Daha fazla", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Palette.Ink.copy(alpha = 0.65f), maxLines = 1)
+            Text("Daha fazla", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
         }
     }
 }
