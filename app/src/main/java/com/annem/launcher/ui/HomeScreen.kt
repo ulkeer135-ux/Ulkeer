@@ -192,14 +192,15 @@ fun HomeScreen(
 
         // Ekranı Kapat tam genişlikte; "Daha fazla" sekmesi düğmenin üst kenarına oturur
         // (yarısı kutularla düğme arasındaki boşlukta), dikeyde hiç yer kaplamaz.
-        Box(Modifier.fillMaxWidth()) {
+        // Sekme kutulara değmesin: düğmenin üstünde küçük ek boşluk.
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             LockButton(onClick = {
                 val result = ScreenLock.lock(context)
                 if (result != LockResult.LOCKED) lockProblem = result
             })
             MoreTab(
                 onOpen = { moreOpen = true },
-                modifier = Modifier.align(Alignment.TopCenter).offset(y = (-15).dp),
+                modifier = Modifier.align(Alignment.TopCenter).offset(y = (-13).dp),
             )
         }
     }
@@ -545,11 +546,11 @@ private fun LockButton(onClick: () -> Unit) {
 private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
     Surface(
         onClick = onOpen,
-        shape = RoundedCornerShape(15.dp),
-        color = Color.White,
-        border = BorderStroke(2.dp, Palette.EmptyLine),
+        shape = RoundedCornerShape(13.dp),
+        color = Palette.Cream,
+        border = BorderStroke(1.5.dp, Palette.EmptyLine),
         modifier = modifier
-            .height(30.dp)
+            .height(26.dp)
             .semantics { contentDescription = "Daha fazla uygulama" }
             .pointerInput(Unit) {
                 var total = 0f
@@ -560,12 +561,12 @@ private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
             },
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Daha fazla", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Palette.InkSoft, maxLines = 1)
+            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(3.dp))
+            Text("Daha fazla", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, maxLines = 1)
         }
     }
 }
