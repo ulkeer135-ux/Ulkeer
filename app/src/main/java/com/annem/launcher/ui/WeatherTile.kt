@@ -164,7 +164,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                 // Kart kısa kalırsa (küçük ekran) konum satırı gizlenir; hiçbir yazı kesilmez.
                 val showPlace = maxHeight >= 116.dp
                 val bigCard = maxHeight >= 140.dp
-                // Çok kısa kart (Daha fazla şeridiyle 9 kutu): durum yazısı sıcaklığın sağına geçer.
+                // Çok kısa kart: durum yazısı sıcaklığın sağına geçer.
                 val sideText = maxHeight < 112.dp
                 val tempSp = if (bigCard) 54f else 44f
                 if (look.stars) {
