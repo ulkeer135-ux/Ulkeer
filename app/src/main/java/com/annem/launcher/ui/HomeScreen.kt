@@ -557,8 +557,8 @@ private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
         // Buzlu cam: yarı saydam beyaz, ince beyaz kenar; altı Ekranı Kapat'ın üstüne biner.
         shape = RoundedCornerShape(50),
         // Beyaz yazı krem zeminde de okunsun diye cam hafif koyu tonlu.
-        color = Palette.Ink.copy(alpha = 0.32f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f)),
+        color = Palette.Ink,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
         shadowElevation = 0.dp,
         modifier = modifier
             .height(26.dp)
