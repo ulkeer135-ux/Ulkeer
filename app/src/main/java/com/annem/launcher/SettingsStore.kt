@@ -150,7 +150,7 @@ class SettingsStore(context: Context) {
     private val slots = mutableStateMapOf<String, TileSlot>()
 
     init {
-        Slots.ALL.forEach { id ->
+        (Slots.ALL + Slots.MORE).forEach { id ->
             val pkg = prefs.getString("slot_${id}_pkg", null)
             val label = prefs.getString("slot_${id}_label", null)
             if (pkg != null && label != null) slots[id] = TileSlot(pkg, label)

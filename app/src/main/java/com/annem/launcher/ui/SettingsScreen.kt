@@ -225,6 +225,10 @@ fun SettingsScreen(
         Hint("Ana ekrandaki üç kutuya telefondaki istediğin uygulamayı koyabilirsin. Boş kutuya ana ekranda dokunarak da ekleyebilirsin. Kutuda uygulamanın simgesi ve aşağıda yazdığın ad görünür.")
         Hint("Kutular soldan sağa, yukarıdan aşağıya numaralanır (Kişiler, Telefon ve WhatsApp'tan sonra).")
         Slots.visible(store.tileCount == 9).forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
+        Spacer(Modifier.height(8.dp))
+        Text("\"Daha fazla\" çekmecesi", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+        Hint("Ana ekranda Ekranı Kapat düğmesinin üstündeki \"Daha fazla\"ya dokununca ya da yukarı kaydırınca açılan 6 kutu.")
+        Slots.MORE.forEach { id -> SlotSetting(store, id, Slots.title(id), onPickApp) }
 
         HorizontalDivider()
 
