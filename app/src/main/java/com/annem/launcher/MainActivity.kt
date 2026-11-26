@@ -89,14 +89,47 @@ class MainActivity : ComponentActivity() {
         StartupStats.onActivityRestarted(this)
     }
 
+    // --- Yedek: ekran kendiliğinden kararmazsa Annem kapatır ---
+    // Telefonun süresi (+3 sn) boyunca dokunulmazsa ve ekran hâlâ açıksa, Ekranı Kapat'ın
+    // yolu (erişilebilirlik / cihaz yöneticisi) ile ekran kapatılır. Rüya Tabirleri hariç.
+    private var lastInteraction = android.os.SystemClock.uptimeMillis()
+    private val idleHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val idleCheck = object : Runnable {
+        override fun run() {
+            val timeout = ScreenAwake.timeoutMs(this@MainActivity)
+            val usable = timeout in 5_000 until 24 * 3600_000 && !ScreenAwake.stayOnWhilePlugged(this@MainActivity)
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            val idle = android.os.SystemClock.uptimeMillis() - lastInteraction
+            if (usable && !dreamsVisible && pm?.isInteractive == true && idle > timeout + 3_000) {
+                lastInteraction = android.os.SystemClock.uptimeMillis()
+                ScreenLock.lock(this@MainActivity)
+            }
+            idleHandler.postDelayed(this, 2_000)
+        }
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        lastInteraction = android.os.SystemClock.uptimeMillis()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        lastInteraction = android.os.SystemClock.uptimeMillis()
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onResume() {
         super.onResume()
+        lastInteraction = android.os.SystemClock.uptimeMillis()
+        idleHandler.removeCallbacks(idleCheck)
+        idleHandler.postDelayed(idleCheck, 2_000)
         if (!dreamsVisible) ScreenAwake.release(this)
         visible = this
         BadgeService.ensureConnected(this)
     }
 
     override fun onPause() {
+        idleHandler.removeCallbacks(idleCheck)
         if (visible === this) visible = null
         focused = false
         super.onPause()
