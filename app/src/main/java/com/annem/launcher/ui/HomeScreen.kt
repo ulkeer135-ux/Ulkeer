@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -107,7 +108,9 @@ fun HomeScreen(
         ScreenLock.reportActivation(context)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Çekmece açıkken arkadaki ana ekran yumuşakça bulanıklaşır (buzlu cam hissi, Android 12+).
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (moreOpen) 16.dp else 0.dp, label = "blur")
+    Box(modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
     // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
     Box(
         modifier = Modifier
@@ -372,6 +375,7 @@ private fun SlotTile(
     onPickApp: (String) -> Unit,
     compact: Boolean = false,
     onOpenDreams: () -> Unit = {},
+    glass: Boolean = false,
 ) {
     val context = LocalContext.current
     val slot = store.slot(slotId)
@@ -384,6 +388,7 @@ private fun SlotTile(
             iconTint = iconTint,
             modifier = modifier,
             compact = compact,
+            glass = glass,
         ) { onOpenDreams() }
         return
     }
@@ -404,6 +409,7 @@ private fun SlotTile(
             modifier = modifier,
             appIcon = appIcon,
             compact = compact,
+            glass = glass,
         ) {
             if (!Actions.openApp(context, slot.packageName)) onPickApp(slotId)
         }
@@ -411,7 +417,7 @@ private fun SlotTile(
         Tile(
             if (compact) "Ekle" else "Uygulama ekle",
             Icons.Rounded.Add, Palette.EmptyBg, Palette.EmptyLine, Palette.EmptyIcon, modifier,
-            empty = true, compact = compact,
+            empty = true, compact = compact, glass = glass,
         ) {
             onPickApp(slotId)
         }
@@ -437,6 +443,8 @@ private fun Tile(
     compact: Boolean = false,
     /** Kendi çizdiğimiz sevimli simge (varsa düz simgenin yerine). */
     cuteIcon: (@Composable (Modifier) -> Unit)? = null,
+    /** Buzlu cam: "Daha fazla" çekmecesinde yarı saydam. */
+    glass: Boolean = false,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -445,8 +453,8 @@ private fun Tile(
         onClick = onClick,
         modifier = Modifier.fillMaxSize().then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
         shape = shape,
-        color = Color.White,
-        border = if (empty) null else BorderStroke(2.dp, line),
+        color = if (glass) Color.White.copy(alpha = 0.55f) else Color.White,
+        border = if (empty) null else BorderStroke(if (glass) 1.5.dp else 2.dp, if (glass) Color.White.copy(alpha = 0.9f) else line),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Üst: renkli alan + simge
@@ -454,7 +462,7 @@ private fun Tile(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(background),
+                    .background(if (glass) background.copy(alpha = 0.6f) else background),
                 contentAlignment = Alignment.Center,
             ) {
                 val iconSize = (maxHeight * 0.62f).coerceIn(28.dp, 56.dp)
@@ -584,7 +592,9 @@ private fun MoreSheet(
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Palette.Cream,
+        containerColor = Palette.Cream.copy(alpha = 0.72f),
+        scrimColor = Color.Black.copy(alpha = 0.12f),
+        tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
@@ -609,7 +619,7 @@ private fun MoreSheet(
                         val (bg, line, icon) = colors[r * 3 + c]
                         SlotTile(
                             store, id, bg, line, icon, Modifier.weight(1f).fillMaxHeight(),
-                            onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams,
+                            onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams, glass = true,
                         )
                     }
                 }
@@ -618,6 +628,7 @@ private fun MoreSheet(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth().height(60.dp),
                 shape = RoundedCornerShape(18.dp),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.5f)),
             ) { Text("Kapat", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Ink) }
         }
     }
