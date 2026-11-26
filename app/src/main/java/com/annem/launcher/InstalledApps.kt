@@ -29,8 +29,8 @@ object Slots {
     /** 6 kutulu düzende 3, 9 kutulu düzende 6 seçilebilir kutu var. */
     fun visible(nineTiles: Boolean): List<String> = if (nineTiles) ALL else ALL.take(3)
 
-    /** "Daha fazla" çekmecesindeki 6 kutu (ana ekran düzeninden bağımsız). */
-    val MORE = listOf("more1", "more2", "more3", "more4", "more5", "more6")
+    /** "Daha fazla" çekmecesindeki 9 kutu (ana ekran düzeninden bağımsız). */
+    val MORE = listOf("more1", "more2", "more3", "more4", "more5", "more6", "more7", "more8", "more9")
 
     fun title(id: String): String =
         if (id in MORE) "Daha fazla ${MORE.indexOf(id) + 1}. kutu" else "${ALL.indexOf(id) + 1}. kutu"
