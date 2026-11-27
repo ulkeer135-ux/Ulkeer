@@ -214,7 +214,7 @@ fun HomeScreen(
         // Sekme kutulara değmesin: düğmenin üstünde küçük ek boşluk.
         Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             LockButton(onClick = {
-                val result = ScreenLock.lock(context)
+                val result = ScreenLock.lockFromButton(context, store.clearOnLock)
                 if (result != LockResult.LOCKED) lockProblem = result
             })
             MoreTab(

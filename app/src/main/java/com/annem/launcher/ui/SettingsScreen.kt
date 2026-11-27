@@ -516,6 +516,24 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(12.dp))
         Hint(
+            "Ekranı Kapat'ta arka plan uygulamalarını kapat: düğmeye basınca telefon bir an son " +
+                "uygulamalar ekranını açar, \"Tümünü temizle\"ye basar, sonra ekranı kapatır " +
+                "(yaklaşık 1,5 sn). \"Ekranı Kapat\" Yol 1 (Erişilebilirlik) açık olmalı."
+        )
+        val canRead = remember(lifecycleState) { LockService.canReadScreen }
+        StatusRow("Arka plan uygulamalarını kapat", store.clearOnLock && lockEnabled && canRead, onText = "Açık", offText = "Kapalı")
+        if (lockEnabled && store.clearOnLock && !canRead) {
+            Hint("Telefon bu yetkiyi henüz vermedi: Erişilebilirlik'te Annem'i bir kez kapatıp yeniden aç.")
+        }
+        if (lockEnabled) {
+            val (ok, miss) = remember(lifecycleState) { LockService.clearCounts(context) }
+            Hint("Kontrol: temizlendi $ok · bulunamadı $miss")
+        }
+        OutlinedButton(onClick = { store.updateClearOnLock(!store.clearOnLock) }) {
+            Text(if (store.clearOnLock) "Arka plan kapatmayı kapat" else "Arka plan kapatmayı aç", fontSize = 18.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+        Hint(
             "Ana ekran tuşunda telefon bir an duvar kağıdını gösteriyor (telefonun kendi geçiş " +
                 "animasyonu). Duvar kağıdını Annem'in zeminiyle aynı yaparsan bu an fark edilmez. " +
                 "Kilit ekranı değişmez."
