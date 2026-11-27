@@ -11,6 +11,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -107,7 +109,7 @@ fun HomeScreen(
 
     // Hava durumu çekmecesi açıkken arkadaki ana ekran yumuşakça bulanıklaşır (buzlu cam hissi, Android 12+).
     val behindBlur by androidx.compose.animation.core.animateDpAsState(if (weatherOpen) 16.dp else 0.dp, label = "blur")
-    Box(modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
+    Box(modifier = Modifier.fillMaxSize().homeReveal().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
     // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
     Box(
         modifier = Modifier
@@ -436,9 +438,15 @@ private fun Tile(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
-    Box(modifier = modifier) {
+    // Açılış efekti için kutunun ekrandaki yeri.
+    val rootView = androidx.compose.ui.platform.LocalView.current
+    var bounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    Box(modifier = modifier.onGloballyPositioned { bounds = it.boundsInRoot() }) {
     Surface(
-        onClick = onClick,
+        onClick = {
+            bounds?.let { LaunchOrigin.set(rootView, it) }
+            onClick()
+        },
         modifier = Modifier.fillMaxSize().then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
         shape = shape,
         color = Color.White,

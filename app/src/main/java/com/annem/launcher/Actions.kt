@@ -78,7 +78,21 @@ object Actions {
     }
 
     private fun start(context: Context, intent: Intent): Boolean = try {
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Kutuya dokunarak açıldıysa: uygulama o kutudan balon gibi büyüyerek açılsın.
+        val origin = com.annem.launcher.ui.LaunchOrigin.take()
+        val options = origin?.let { (view, r) ->
+            android.app.ActivityOptions.makeScaleUpAnimation(
+                view, r.left.toInt(), r.top.toInt(), r.width.toInt().coerceAtLeast(1), r.height.toInt().coerceAtLeast(1),
+            ).toBundle()
+        }
+        try {
+            context.startActivity(intent, options)
+        } catch (e: IllegalArgumentException) {
+            context.startActivity(intent)
+        }
+        // Dönüşte ana ekran balonla açılsın.
+        com.annem.launcher.ui.HomeReveal.markAppLaunched()
         true
     } catch (e: ActivityNotFoundException) {
         false
