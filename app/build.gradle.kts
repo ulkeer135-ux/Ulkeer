@@ -13,8 +13,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // Not: annem-anne dalı (annenin telefonu, AnnemAnne.apk) versionCode 85 kullandı; buradaki bir sonraki sürüm en az 86 olmalı.
-        versionCode = 84
-        versionName = "2.73"
+        versionCode = 86
+        versionName = "2.75"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.
