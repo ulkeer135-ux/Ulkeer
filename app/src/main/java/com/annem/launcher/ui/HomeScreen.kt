@@ -602,12 +602,13 @@ private fun MoreSheet(
     val closeAnimated: () -> Unit = {
         if (!closing) {
             closing = true
-            scope.launch {
+            // Telefonun "animasyon hızı" ayarı (pil tasarrufu vb.) efekti kısaltmasın: süre hep gerçek 1 sn.
+            scope.launch(object : androidx.compose.ui.MotionDurationScale { override val scaleFactor = 1f }) {
                 slideOut.animateTo(
                     1f,
                     androidx.compose.animation.core.tween(
-                        durationMillis = 550,
-                        easing = androidx.compose.animation.core.FastOutSlowInEasing,
+                        durationMillis = 1000,
+                        easing = androidx.compose.animation.core.CubicBezierEasing(0.45f, 0f, 0.55f, 1f),
                     ),
                 )
                 onDismiss()
@@ -626,9 +627,10 @@ private fun MoreSheet(
                 val maxR = kotlin.math.hypot(cx, cy)
                 val r = maxR * (1f - p)
                 transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
-                scaleX = 1f - 0.25f * p
-                scaleY = 1f - 0.25f * p
-                alpha = 1f - p * p
+                scaleX = 1f - 0.4f * p
+                scaleY = 1f - 0.4f * p
+                // Son kısma kadar net görünsün, sonda solsun.
+                alpha = if (p < 0.7f) 1f else 1f - (p - 0.7f) / 0.3f
                 clip = true
                 shape = androidx.compose.foundation.shape.GenericShape { _, _ ->
                     addOval(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset(cx, cy), r))
