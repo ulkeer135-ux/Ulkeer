@@ -118,12 +118,6 @@ class MainActivity : ComponentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    override fun onStart() {
-        super.onStart()
-        // Annem'den açılan bir uygulamadan dönülüyorsa: ana ekran balon gibi açılarak gelsin.
-        com.annem.launcher.ui.HomeReveal.startIfReturning()
-    }
-
     override fun onResume() {
         super.onResume()
         lastInteraction = android.os.SystemClock.uptimeMillis()
