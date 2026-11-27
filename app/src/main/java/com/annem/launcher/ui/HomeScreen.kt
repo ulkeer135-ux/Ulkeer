@@ -602,8 +602,16 @@ private fun MoreSheet(
     onPickApp: (String) -> Unit,
     onOpenDreams: () -> Unit,
 ) {
-    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Elle aşağı itince de "Kapat"taki balon efekti: çekmecenin kendi kayarak kapanması engellenir,
+    // yerine balon toplanması başlar.
+    val closeRef = remember { arrayOf<() -> Unit>({}) }
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { value ->
+            if (value == androidx.compose.material3.SheetValue.Hidden) { closeRef[0](); false } else true
+        },
+    )
     // "Kapat": WhatsApp'taki ek menüsü gibi balon toplanması — çekmece, alttaki "Daha fazla"
     // sekmesine doğru küçülen bir daireyle kapanır, hafifçe küçülüp solar; sonra kaldırılır.
     val slideOut = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -624,8 +632,10 @@ private fun MoreSheet(
             }
         }
     }
+    closeRef[0] = closeAnimated
     androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        // Boşluğa dokunma / geri tuşu: çekmece hâlâ görünüyorsa yine balon efektiyle kapanır.
+        onDismissRequest = { if (!closing) { if (sheetState.isVisible) closeAnimated() else onDismiss() } },
         sheetState = sheetState,
         modifier = Modifier.graphicsLayer {
             val p = slideOut.value
