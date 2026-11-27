@@ -275,6 +275,7 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
     val time = now.format(DateTimeFormatter.ofPattern("HH:mm", TURKISH))
     val date = now.format(DateTimeFormatter.ofPattern("d MMMM EEEE", TURKISH))
     val battery = rememberBatteryState()
+    val signal = rememberSignalState()
 
     Column(
         modifier = Modifier
@@ -299,9 +300,25 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
                     .weight(1f)
                     .semantics { contentDescription = "Saat $time, $date" },
             )
-            battery?.let { BatteryIndicator(it) }
+            // Sağda: şarj, altında şebeke çekişi (köyde çekim sorunu için).
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                battery?.let { BatteryIndicator(it) }
+                signal?.let { SignalIndicator(it) }
+            }
         }
         Text(date, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, lineHeight = 28.sp)
+        if (signal?.noService == true) {
+            Text(
+                "Şebeke yok, arama yapılamayabilir",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Palette.Red,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         if (battery?.low == true) {
             Text(
                 "Şarj azaldı, telefonu şarja tak",
