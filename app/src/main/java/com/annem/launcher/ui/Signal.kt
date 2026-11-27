@@ -108,32 +108,32 @@ fun rememberSignalState(): SignalState? {
     return state
 }
 
-/** Pil göstergesinin altındaki şebeke göstergesi: çubuklar + "İyi / Orta / Zayıf / Yok". */
+/** Şarj kutucuğunun içindeki şebeke işareti: 4 çubuk; uçak modu / SIM yok için simge. */
 @Composable
-fun SignalIndicator(state: SignalState) {
-    val (level, label, color) = when (state) {
-        SignalState.Airplane -> Triple(0, "Uçak modu", Palette.Red)
-        SignalState.NoSim -> Triple(0, "SIM yok", Palette.Red)
-        is SignalState.Bars -> when (state.level) {
-            0 -> Triple(0, "Şebeke yok", Palette.Red)
-            1 -> Triple(1, "Zayıf", Palette.Red)
-            2 -> Triple(2, "Orta", Color(0xFFC2560C))
-            else -> Triple(state.level, "İyi", Palette.Green)
-        }
+fun SignalMark(state: SignalState) {
+    when (state) {
+        SignalState.Airplane -> androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.Rounded.AirplanemodeActive, contentDescription = null,
+            tint = Palette.Red, modifier = Modifier.height(24.dp).width(24.dp),
+        )
+        SignalState.NoSim -> androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.Rounded.SimCardAlert, contentDescription = null,
+            tint = Palette.Red, modifier = Modifier.height(24.dp).width(24.dp),
+        )
+        is SignalState.Bars -> SignalBars(state.level, signalColor(state.level))
     }
-    val description = "Şebeke: $label"
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .semantics(mergeDescendants = true) { contentDescription = description }
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
-        SignalBars(level, color)
-        Spacer(Modifier.width(8.dp))
-        Text(label, fontSize = 20.sp, fontWeight = FontWeight.Black, color = color, maxLines = 1)
-    }
+}
+
+fun signalColor(level: Int): Color = when (level) {
+    0, 1 -> Palette.Red
+    2 -> Color(0xFFC2560C)
+    else -> Palette.Green
+}
+
+fun signalLabel(state: SignalState): String = when (state) {
+    SignalState.Airplane -> "uçak modu"
+    SignalState.NoSim -> "SIM yok"
+    is SignalState.Bars -> when (state.level) { 0 -> "şebeke yok"; 1 -> "zayıf"; 2 -> "orta"; else -> "iyi" }
 }
 
 @Composable

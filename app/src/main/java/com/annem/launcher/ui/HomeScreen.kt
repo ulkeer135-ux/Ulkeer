@@ -300,14 +300,8 @@ private fun ClockHeader(onSecretHold: () -> Unit) {
                     .weight(1f)
                     .semantics { contentDescription = "Saat $time, $date" },
             )
-            // Sağda: şarj, altında şebeke çekişi (köyde çekim sorunu için).
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                battery?.let { BatteryIndicator(it) }
-                signal?.let { SignalIndicator(it) }
-            }
+            // Sağda: şebeke çekişi + şarj, aynı kutucukta yan yana (köyde çekim sorunu için).
+            battery?.let { BatteryIndicator(it, signal) }
         }
         Text(date, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, lineHeight = 28.sp)
         if (signal?.noService == true) {

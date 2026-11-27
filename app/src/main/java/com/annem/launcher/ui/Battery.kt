@@ -112,13 +112,14 @@ private fun parseBattery(intent: Intent): BatteryState? {
 
 /** Saatin yanındaki büyük şarj göstergesi: pil çizimi + "%85". */
 @Composable
-fun BatteryIndicator(state: BatteryState) {
+fun BatteryIndicator(state: BatteryState, signal: SignalState? = null) {
     val color = when {
         state.low -> Palette.Red
         state.charging -> Palette.Green
         else -> Palette.Ink
     }
-    val description = "Şarj yüzde ${state.percent}" + if (state.charging) ", şarj oluyor" else ""
+    val description = "Şarj yüzde ${state.percent}" + (if (state.charging) ", şarj oluyor" else "") +
+        (signal?.let { ", şebeke ${signalLabel(it)}" } ?: "")
 
     // Beyaz "hap" içinde: pil çizimi (şarjdayken şimşek) ve yüzde.
     Row(
@@ -129,6 +130,11 @@ fun BatteryIndicator(state: BatteryState) {
             .background(Color.White)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
+        // Şebeke çekişi, şarjın hemen solunda.
+        signal?.let {
+            SignalMark(it)
+            Spacer(Modifier.width(10.dp))
+        }
         if (state.charging) {
             Icon(Icons.Rounded.Bolt, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
         } else {
