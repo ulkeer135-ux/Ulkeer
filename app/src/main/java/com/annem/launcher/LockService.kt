@@ -109,17 +109,20 @@ class LockService : AccessibilityService() {
                 when {
                     found === EMPTY -> {
                         // Açık uygulama yok: beklemeden bitir.
+                        record("Liste boştu (açık uygulama yok)")
                         markCleared()
                         goHome(thenLock)
                     }
                     found != null -> {
                         val ok = found.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        record((if (ok) "Temizle düğmesine basıldı: " else "Düğme bulundu ama basılamadı: ") + describe(found))
                         bump(if (ok) KEY_CLEAR_OK else KEY_CLEAR_MISS)
                         if (ok) markCleared()
                         handler.postDelayed({ goHome(thenLock) }, 600)
                     }
                     SystemClock.uptimeMillis() - started > 1_800 -> {
                         // Düğme bulunamadı: yine de ana ekrana dön (ve ekranı kapat).
+                        record("Temizle düğmesi bulunamadı. Ekrandakiler: " + try { dumpClickables() } catch (e: Exception) { "okunamadı" })
                         bump(KEY_CLEAR_MISS)
                         goHome(thenLock)
                     }
@@ -138,6 +141,40 @@ class LockService : AccessibilityService() {
     private fun finish(thenLock: Boolean) {
         clearing = false
         if (thenLock) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+    }
+
+    private fun record(text: String) {
+        val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale("tr")).format(java.util.Date())
+        getSharedPreferences("annem", MODE_PRIVATE).edit().putString(KEY_LAST_RESULT, "$time · $text").apply()
+    }
+
+    private fun describe(n: AccessibilityNodeInfo): String {
+        val id = n.viewIdResourceName?.substringAfter(":id/") ?: "-"
+        val d = n.contentDescription?.toString()?.take(30) ?: ""
+        val t = n.text?.toString()?.take(30) ?: ""
+        return "[$id|$d|$t]"
+    }
+
+    /** Teşhis: son uygulamalar ekranındaki tıklanabilir öğeler (en fazla 15). */
+    private fun dumpClickables(): String {
+        val out = mutableListOf<String>()
+        val roots = mutableListOf<AccessibilityNodeInfo>()
+        rootInActiveWindow?.let { roots += it }
+        try { windows.forEach { w -> w.root?.let { roots += it } } } catch (e: Exception) { }
+        val pkgs = roots.mapNotNull { it.packageName?.toString() }.distinct()
+        for (root in roots) {
+            if (root.packageName?.toString() == packageName) continue
+            val queue = ArrayDeque<AccessibilityNodeInfo>()
+            queue.add(root)
+            var seen = 0
+            while (queue.isNotEmpty() && seen < 600 && out.size < 15) {
+                val node = queue.removeFirst()
+                seen++
+                if (node.isClickable) out += describe(node)
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return "pencereler=" + pkgs.joinToString(",") + " öğeler=" + out.joinToString(" ")
     }
 
     private fun markCleared() {
@@ -190,7 +227,7 @@ class LockService : AccessibilityService() {
     private fun isClearAll(node: AccessibilityNodeInfo): Boolean {
         val id = node.viewIdResourceName?.lowercase() ?: ""
         if (id.contains("clear_all") || id.contains("clearall") || id.contains("clear_button") ||
-            id.contains("clean") || id.endsWith("/clear")
+            id.contains("clean") || id.contains("clear")
         ) return true
         val tr = java.util.Locale("tr")
         val label = ((node.text?.toString() ?: "") + " " + (node.contentDescription?.toString() ?: "")).lowercase(tr)
@@ -206,6 +243,7 @@ class LockService : AccessibilityService() {
         private const val KEY_CLEAR_OK = "clear_all_ok"
         private const val KEY_CLEAR_MISS = "clear_all_miss"
         private const val KEY_LAST_CLEAR = "clear_last_at"
+        private const val KEY_LAST_RESULT = "clear_last_result"
         /** Son temizlikten sonra Annem'den uygulama açıldı mı? */
         const val KEY_DIRTY = "apps_used_since_clear"
         /** "Liste boş" işareti (gerçek bir düğüm değil). */
@@ -223,9 +261,17 @@ class LockService : AccessibilityService() {
 
         /** Arka plan uygulamalarını kapatır; thenLock ise ardından ekranı kapatır. */
         fun clearRecents(context: Context, thenLock: Boolean): Boolean {
-            if (!isSupported) return false
-            val service = instance ?: return false
-            if (!canReadScreen) return false
+            val p = context.getSharedPreferences("annem", Context.MODE_PRIVATE)
+            fun note(t: String) {
+                val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale("tr")).format(java.util.Date())
+                p.edit().putString(KEY_LAST_RESULT, "$time · $t").apply()
+            }
+            if (!isSupported) { note("Bu Android sürümünde desteklenmiyor"); return false }
+            val service = instance ?: run { note("Erişilebilirlik servisi çalışmıyor"); return false }
+            if (!canReadScreen) {
+                note("Ekranı okuma yetkisi yok: Erişilebilirlik'te Annem'i kapatıp yeniden aç")
+                return false
+            }
             service.handler.post { service.runClear(thenLock) }
             return true
         }
@@ -237,6 +283,9 @@ class LockService : AccessibilityService() {
 
         fun appsUsedSinceClear(context: Context): Boolean =
             context.getSharedPreferences("annem", Context.MODE_PRIVATE).getBoolean(KEY_DIRTY, true)
+
+        fun lastResult(context: Context): String =
+            context.getSharedPreferences("annem", Context.MODE_PRIVATE).getString(KEY_LAST_RESULT, null) ?: "Henüz denenmedi"
 
         fun lastClearAt(context: Context): Long =
             context.getSharedPreferences("annem", Context.MODE_PRIVATE).getLong(KEY_LAST_CLEAR, 0L)

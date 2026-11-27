@@ -527,7 +527,12 @@ fun SettingsScreen(
         }
         if (lockEnabled) {
             val (ok, miss) = remember(lifecycleState) { LockService.clearCounts(context) }
-            Hint("Kontrol: temizlendi $ok · bulunamadı $miss")
+            Hint("Kontrol: temizlendi $ok · bulunamadı $miss · ekranı okuma yetkisi ${if (canRead) "var" else "yok"}")
+            val last = remember(lifecycleState) { LockService.lastResult(context) }
+            Hint("Son deneme: $last")
+            OutlinedButton(onClick = { LockService.clearRecents(context, thenLock = false) }) {
+                Text("Temizliği şimdi dene (ekran kapanmaz)", fontSize = 18.sp)
+            }
         }
         OutlinedButton(onClick = { store.updateClearOnLock(!store.clearOnLock) }) {
             Text(if (store.clearOnLock) "Arka plan kapatmayı kapat" else "Arka plan kapatmayı aç", fontSize = 18.sp)
