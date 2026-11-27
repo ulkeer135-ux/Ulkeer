@@ -2,7 +2,7 @@ name: Annem APK derle
 
 on:
   push:
-    branches: [annem-launcher]
+    branches: [annem-launcher, annem-anne]
 
 permissions:
   contents: write
@@ -25,7 +25,10 @@ jobs:
           chmod +x gradlew
           set -o pipefail
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
-          cp app/build/outputs/apk/release/app-release.apk Annem.apk
+          # annem-anne dalı: annenin telefonu için ayrı dosya (Daha fazla'sız).
+          if [ "$GITHUB_REF_NAME" = "annem-anne" ]; then APK=AnnemAnne.apk; else APK=Annem.apk; fi
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
 
       # Derleme hatalarını giriş yapmadan da görülebilen uyarı notlarına (annotation) yazar.
       - name: Derleme hatalarını göster
@@ -38,8 +41,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Annem-APK
-          path: Annem.apk
+          name: ${{ env.APK }}
+          path: ${{ env.APK }}
 
       # Telefondan tek bağlantıyla indirilebilsin diye APK bir sürüm (release) olarak da yayınlanır.
       - name: Sürüm olarak yayınla
@@ -52,7 +55,7 @@ jobs:
               --notes "Telefona indirip kurun. Kurulum adımları: annem-launcher dalındaki README."
           # GitHub yükleme bazen geçici hata veriyor: 4 kez dene.
           for i in 1 2 3 4; do
-            gh release upload annem-latest Annem.apk --clobber && exit 0
+            gh release upload annem-latest "$APK" --clobber && exit 0
             echo "Yükleme başarısız ($i), 15 sn sonra yeniden..."; sleep 15
           done
           exit 1
