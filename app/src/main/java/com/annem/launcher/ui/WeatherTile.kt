@@ -61,6 +61,18 @@ import com.annem.launcher.WeatherApi
 import com.annem.launcher.weatherDescription
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import com.annem.launcher.DayForecast
+import com.annem.launcher.Forecast
+import com.annem.launcher.HourForecast
+import com.annem.launcher.WeatherNow
 
 private const val REFRESH_MS = 30L * 60L * 1000L // 30 dakikada bir
 private const val RETRY_MS = 5L * 60L * 1000L    // hata olursa 5 dakika sonra tekrar
@@ -69,10 +81,10 @@ private const val RETRY_MS = 5L * 60L * 1000L    // hata olursa 5 dakika sonra t
  * Ekranın üstündeki büyük hava durumu kutusu. Telefonun yaklaşık konumunu kullanır
  * (izin yoksa ya da konum kapalıysa Ayarlar'daki şehri). Yalnızca ekran görünürken ve
  * en fazla 30 dakikada bir günceller; internet yoksa son bilinen değeri gösterir.
- * Dokununca Google'ın hava durumu sayfası açılır.
+ * Dokununca saatlik ve günlük tahmin, "Daha fazla" gibi alttan açılan cam çekmecede görünür.
  */
 @Composable
-fun WeatherTile(store: SettingsStore, modifier: Modifier) {
+fun WeatherTile(store: SettingsStore, modifier: Modifier, onDetailsVisible: (Boolean) -> Unit = {}) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
@@ -96,6 +108,11 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
         mutableStateOf(if (useDevice) store.devicePlaceName ?: "Konumum" else store.weatherCity)
     }
     var offline by remember(source) { mutableStateOf(false) }
+    // Son kullanılan konum (çekmecedeki tahmin aynı yerden alınsın).
+    var usedLat by remember(source) { mutableStateOf(store.weatherLatitude) }
+    var usedLon by remember(source) { mutableStateOf(store.weatherLongitude) }
+    var detailsOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(detailsOpen) { onDetailsVisible(detailsOpen) }
 
     LaunchedEffect(source, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -121,6 +138,8 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                             placeName = store.weatherCity
                         }
                     }
+                    usedLat = latitude
+                    usedLon = longitude
                     val fresh = WeatherApi.fetch(latitude, longitude)
                     weather = fresh
                     store.cacheWeather(fresh, source)
@@ -146,7 +165,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
     }
     val spoken = if (current != null) {
         "$placeName hava durumu: ${current.temperature} derece, $description, " +
-            "en yüksek ${current.max}, en düşük ${current.min}. Google'da açmak için dokun."
+            "en yüksek ${current.max}, en düşük ${current.min}. Saatlik tahmin için dokun."
     } else {
         "$placeName hava durumu: $description"
     }
@@ -154,7 +173,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
 
     // Kart, havaya göre renk alır (gece lacivert, gündüz mavi, yağmurda gri-mavi…).
     Surface(
-        onClick = { Actions.openGoogleWeather(context, placeName) },
+        onClick = { detailsOpen = true },
         modifier = modifier.semantics(mergeDescendants = true) { contentDescription = spoken },
         shape = shape,
         color = look.sky,
@@ -245,6 +264,22 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier) {
                 }
             }
     }
+
+    if (detailsOpen) {
+        WeatherSheet(
+            place = placeName,
+            latitude = usedLat,
+            longitude = usedLon,
+            useDevice = useDevice,
+            onFresh = { w ->
+                weather = w
+                store.cacheWeather(w, source)
+                offline = false
+            },
+            onGoogle = { Actions.openGoogleWeather(context, placeName) },
+            onDismiss = { detailsOpen = false },
+        )
+    }
 }
 
 @Composable
@@ -283,6 +318,181 @@ private fun weatherLook(code: Int, isDay: Boolean): WeatherLook {
             WeatherLook(Icons.Rounded.CloudOff, Palette.OnSkySoft, Palette.SkyNight, Palette.SkyNightShadow)
         } else {
             WeatherLook(Icons.Rounded.CloudOff, Palette.OnSkySoft, Palette.SkyDay, Palette.SkyDayShadow)
+        }
+    }
+}
+
+/** Çekmece her açılışta yeniden indirmesin: son tahmin 30 dakika bellekte tutulur. */
+private object ForecastCache {
+    var key: String = ""
+    var data: Forecast? = null
+}
+
+/** Açık zeminde (cam çekmece) okunur simge rengi. */
+private fun lightTint(code: Int, isDay: Boolean): Color {
+    val look = weatherLook(code, isDay)
+    return when {
+        code == 0 && isDay -> Color(0xFFE8A200)
+        code in listOf(95, 96, 99) -> Color(0xFFE8A200)
+        else -> look.sky
+    }
+}
+
+private val RainBlue = Color(0xFF2F6FC0)
+
+/** Hava durumu kutusuna dokununca: saatlik (24 saat) ve günlük (7 gün) tahmin. */
+@Composable
+private fun WeatherSheet(
+    place: String,
+    latitude: Double,
+    longitude: Double,
+    useDevice: Boolean,
+    onFresh: (WeatherNow) -> Unit,
+    onGoogle: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val key = String.format(java.util.Locale.US, "%.2f,%.2f,%b", latitude, longitude, useDevice)
+    var forecast by remember { mutableStateOf(ForecastCache.data?.takeIf { ForecastCache.key == key }) }
+    var failed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableStateOf(0) }
+    LaunchedEffect(attempt) {
+        val cached = forecast
+        if (attempt == 0 && cached != null && System.currentTimeMillis() - cached.fetchedAt < REFRESH_MS) return@LaunchedEffect
+        failed = false
+        try {
+            var lat = latitude
+            var lon = longitude
+            if (useDevice) DeviceLocation.current(context)?.let { lat = it.latitude; lon = it.longitude }
+            val fresh = WeatherApi.forecast(lat, lon)
+            forecast = fresh
+            ForecastCache.key = key
+            ForecastCache.data = fresh
+            // Ana ekrandaki kutu da aynı anda aynı değeri göstersin.
+            onFresh(fresh.now)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failed = true
+        }
+    }
+
+    BalloonSheet(onDismiss = onDismiss) { close ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("Hava durumu", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = Palette.InkSoft, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(place, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+
+            val f = forecast
+            if (f == null) {
+                Text(
+                    if (failed) "İnternet yok, tahmin alınamadı." else "Yükleniyor…",
+                    fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Palette.Ink,
+                )
+                if (failed) {
+                    OutlinedButton(onClick = { attempt++ }) { Text("Tekrar dene", fontSize = 19.sp, color = Palette.Ink) }
+                }
+            } else {
+                // Şu an
+                val now = f.now
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        weatherLook(now.code, now.isDay).icon,
+                        contentDescription = null,
+                        tint = lightTint(now.code, now.isDay),
+                        modifier = Modifier.size(60.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("${now.temperature}°", fontSize = 50.sp, fontWeight = FontWeight.Black, color = Palette.Ink, lineHeight = 52.sp)
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text(weatherDescription(now.code), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Palette.Ink)
+                        Text("↑ ${now.max}°   ↓ ${now.min}°", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft)
+                    }
+                }
+
+                Text("Saatlik", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(f.hours) { h -> HourCard(h) }
+                }
+
+                Text("Günlük", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    f.days.forEach { d -> DayRow(d) }
+                }
+            }
+
+            OutlinedButton(
+                onClick = onGoogle,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.35f)),
+            ) { Text("Google'da aç", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft) }
+            OutlinedButton(
+                onClick = close,
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.5f)),
+            ) { Text("Kapat", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Ink) }
+        }
+    }
+}
+
+@Composable
+private fun HourCard(h: HourForecast) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White.copy(alpha = 0.6f),
+        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.9f)),
+    ) {
+        Column(
+            modifier = Modifier.width(80.dp).padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(h.label, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft, maxLines = 1)
+            Icon(weatherLook(h.code, h.isDay).icon, contentDescription = null, tint = lightTint(h.code, h.isDay), modifier = Modifier.size(36.dp))
+            Text("${h.temperature}°", fontSize = 23.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+            if (h.rainChance >= 20) {
+                Text("%${h.rainChance}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = RainBlue)
+            } else {
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayRow(d: DayForecast) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White.copy(alpha = 0.6f),
+        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.9f)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(d.label, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Palette.Ink, modifier = Modifier.weight(1f), maxLines = 1)
+            if (d.rainChance >= 20) {
+                Text("%${d.rainChance}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = RainBlue)
+                Spacer(Modifier.width(10.dp))
+            }
+            Icon(weatherLook(d.code, true).icon, contentDescription = null, tint = lightTint(d.code, true), modifier = Modifier.size(32.dp))
+            Spacer(Modifier.width(14.dp))
+            Text("${d.max}°", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+            Text("  ${d.min}°", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.InkSoft)
         }
     }
 }

@@ -86,8 +86,6 @@ import com.annem.launcher.LockResult
 import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.graphicsLayer
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -105,13 +103,14 @@ fun HomeScreen(
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
     var moreOpen by remember { mutableStateOf(false) }
+    var weatherOpen by remember { mutableStateOf(false) }
     // Cihaz yöneticisi onay ekranı: sonuç gelince kurulduysa haber ver.
     val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         ScreenLock.reportActivation(context)
     }
 
     // Çekmece açıkken arkadaki ana ekran yumuşakça bulanıklaşır (buzlu cam hissi, Android 12+).
-    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (moreOpen) 16.dp else 0.dp, label = "blur")
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (moreOpen || weatherOpen) 16.dp else 0.dp, label = "blur")
     Box(modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
     // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
     Box(
@@ -148,7 +147,11 @@ fun HomeScreen(
             val nine = store.tileCount == 9
             val cols = if (nine) 3 else 2
             // 6 kutuda hava durumu kartı diğer satırlardan %40 yüksek; 9 kutuda bir satır boyunda.
-            WeatherTile(store = store, modifier = Modifier.fillMaxWidth().weight(if (nine) 1.05f else 1.4f))
+            WeatherTile(
+                store = store,
+                modifier = Modifier.fillMaxWidth().weight(if (nine) 1.05f else 1.4f),
+                onDetailsVisible = { weatherOpen = it },
+            )
             val showBadges = store.badgesEnabled
 
             // Kutular soldan sağa, yukarıdan aşağıya: 3 sabit kutu + kullanıcının seçtiği kutular.
@@ -602,64 +605,7 @@ private fun MoreSheet(
     onPickApp: (String) -> Unit,
     onOpenDreams: () -> Unit,
 ) {
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    // Elle aşağı itince de "Kapat"taki balon efekti: çekmecenin kendi kayarak kapanması engellenir,
-    // yerine balon toplanması başlar.
-    val closeRef = remember { arrayOf<() -> Unit>({}) }
-    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { value ->
-            if (value == androidx.compose.material3.SheetValue.Hidden) { closeRef[0](); false } else true
-        },
-    )
-    // "Kapat": WhatsApp'taki ek menüsü gibi balon toplanması — çekmece, alttaki "Daha fazla"
-    // sekmesine doğru küçülen bir daireyle kapanır, hafifçe küçülüp solar; sonra kaldırılır.
-    val slideOut = remember { androidx.compose.animation.core.Animatable(0f) }
-    var closing by remember { mutableStateOf(false) }
-    val closeAnimated: () -> Unit = {
-        if (!closing) {
-            closing = true
-            // Telefonun "animasyon hızı" ayarı (pil tasarrufu vb.) efekti kısaltmasın: süre hep gerçek 1 sn.
-            scope.launch(object : androidx.compose.ui.MotionDurationScale { override val scaleFactor = 1f }) {
-                slideOut.animateTo(
-                    1f,
-                    androidx.compose.animation.core.tween(
-                        durationMillis = 1000,
-                        easing = androidx.compose.animation.core.CubicBezierEasing(0.45f, 0f, 0.55f, 1f),
-                    ),
-                )
-                onDismiss()
-            }
-        }
-    }
-    closeRef[0] = closeAnimated
-    androidx.compose.material3.ModalBottomSheet(
-        // Boşluğa dokunma / geri tuşu: çekmece hâlâ görünüyorsa yine balon efektiyle kapanır.
-        onDismissRequest = { if (!closing) { if (sheetState.isVisible) closeAnimated() else onDismiss() } },
-        sheetState = sheetState,
-        modifier = Modifier.graphicsLayer {
-            val p = slideOut.value
-            if (p > 0f) {
-                // Balonun merkezi: çekmecenin alt ortası ("Daha fazla" sekmesinin olduğu yer).
-                val cx = size.width / 2f
-                val cy = size.height
-                val maxR = kotlin.math.hypot(cx, cy)
-                val r = maxR * (1f - p)
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
-                scaleX = 1f - 0.4f * p
-                scaleY = 1f - 0.4f * p
-                // Son kısma kadar net görünsün, sonda solsun.
-                alpha = if (p < 0.7f) 1f else 1f - (p - 0.7f) / 0.3f
-                clip = true
-                shape = androidx.compose.foundation.shape.GenericShape { _, _ ->
-                    addOval(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset(cx, cy), r))
-                }
-            }
-        },
-        containerColor = Palette.Cream.copy(alpha = 0.72f),
-        scrimColor = Color.Black.copy(alpha = 0.12f),
-        tonalElevation = 0.dp,
-    ) {
+    BalloonSheet(onDismiss = onDismiss) { closeAnimated ->
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
