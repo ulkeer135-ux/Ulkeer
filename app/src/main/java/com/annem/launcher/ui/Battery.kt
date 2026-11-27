@@ -135,38 +135,10 @@ fun BatteryIndicator(state: BatteryState, signal: SignalState? = null) {
             SignalMark(it)
             Spacer(Modifier.width(10.dp))
         }
+        // Pil çizimi yok: yalnızca yüzde (şarjdayken önünde şimşek).
         if (state.charging) {
             Icon(Icons.Rounded.Bolt, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
-        } else {
-            BatteryGlyph(state.percent, color)
-            Spacer(Modifier.width(6.dp))
         }
         Text("%${state.percent}", fontSize = 24.sp, fontWeight = FontWeight.Black, color = color)
-    }
-}
-
-@Composable
-private fun BatteryGlyph(percent: Int, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .width(32.dp)
-                .height(19.dp)
-                .border(2.5.dp, color, RoundedCornerShape(6.dp)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(3.dp)
-                    .fillMaxHeight()
-                    .fillMaxWidth((percent / 100f).coerceIn(0.08f, 1f))
-                    .background(color, RoundedCornerShape(2.dp)),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(10.dp)
-                .background(color, RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp)),
-        )
     }
 }
