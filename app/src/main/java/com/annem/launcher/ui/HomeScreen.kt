@@ -87,6 +87,7 @@ import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.graphicsLayer
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -594,13 +595,29 @@ private fun MoreSheet(
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    // "Kapat": çekmece aşağı kayarak kapansın (kaydırarak kapatmadaki gibi), sonra kaldırılsın.
+    // "Kapat": çekmece yavaşça (650 ms) aşağı kayarak kapansın, sonra kaldırılsın.
+    // Hazır hide() animasyonu çok hızlı ve süresi ayarlanamıyor; kendi kaydırmamızı yapıyoruz.
+    val slideOut = remember { androidx.compose.animation.core.Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
     val closeAnimated: () -> Unit = {
-        scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+        if (!closing) {
+            closing = true
+            scope.launch {
+                slideOut.animateTo(
+                    1f,
+                    androidx.compose.animation.core.tween(
+                        durationMillis = 650,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing,
+                    ),
+                )
+                onDismiss()
+            }
+        }
     }
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        modifier = Modifier.graphicsLayer { translationY = size.height * 1.1f * slideOut.value },
         containerColor = Palette.Cream.copy(alpha = 0.72f),
         scrimColor = Color.Black.copy(alpha = 0.12f),
         tonalElevation = 0.dp,
