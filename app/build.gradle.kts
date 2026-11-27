@@ -12,6 +12,7 @@ android {
         applicationId = "com.annem.launcher"
         minSdk = 26
         targetSdk = 35
+        // Not: annem-anne dalı (annenin telefonu, AnnemAnne.apk) versionCode 85 kullandı; buradaki bir sonraki sürüm en az 86 olmalı.
         versionCode = 84
         versionName = "2.73"
     }
