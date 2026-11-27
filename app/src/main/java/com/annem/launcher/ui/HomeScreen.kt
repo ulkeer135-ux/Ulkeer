@@ -86,6 +86,7 @@ import com.annem.launcher.LockResult
 import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -592,6 +593,11 @@ private fun MoreSheet(
     onOpenDreams: () -> Unit,
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // "Kapat": çekmece aşağı kayarak kapansın (kaydırarak kapatmadaki gibi), sonra kaldırılsın.
+    val closeAnimated: () -> Unit = {
+        scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+    }
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -631,7 +637,7 @@ private fun MoreSheet(
                 }
             }
             OutlinedButton(
-                onClick = onDismiss,
+                onClick = closeAnimated,
                 modifier = Modifier.fillMaxWidth().height(60.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.5f)),
