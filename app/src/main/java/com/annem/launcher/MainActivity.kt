@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
             // (yalnızca son temizlikten sonra Annem'den uygulama açıldıysa; yoksa boşuna yanıp sönmesin).
             val clearIdle = prefs.getBoolean("clear_on_idle", true) &&
                 prefs.getBoolean("clear_on_lock", true) &&
-                LockService.appsUsedSinceClear(this@MainActivity) && LockService.canReadScreen
+                LockService.appsUsedSinceClear(this@MainActivity) && (LockService.canReadScreen || LockService.canGesture)
             if (usable && interactive && clearIdle && idle > timeout - 2_500) {
                 lastInteraction = android.os.SystemClock.uptimeMillis()
                 LockService.clearRecents(this@MainActivity, thenLock = true)
@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
         val hours = prefs.getInt("clear_interval_hours", 3)
         val due = System.currentTimeMillis() - LockService.lastClearAt(this) > hours * 3_600_000L
         if (hours > 0 && due && prefs.getBoolean("clear_on_lock", true) &&
-            !dreamsVisible && isInFront && LockService.canReadScreen
+            !dreamsVisible && isInFront && (LockService.canReadScreen || LockService.canGesture)
         ) {
             LockService.clearRecents(this, thenLock = false)
         }

@@ -520,7 +520,7 @@ fun SettingsScreen(
                 "uygulamalar ekranını açar, \"Tümünü temizle\"ye basar, sonra ekranı kapatır " +
                 "(yaklaşık 1,5 sn). \"Ekranı Kapat\" Yol 1 (Erişilebilirlik) açık olmalı."
         )
-        val canRead = remember(lifecycleState) { LockService.canReadScreen }
+        val canRead = remember(lifecycleState) { LockService.canReadScreen || LockService.canGesture }
         StatusRow("Arka plan uygulamalarını kapat", store.clearOnLock && lockEnabled && canRead, onText = "Açık", offText = "Kapalı")
         if (lockEnabled && store.clearOnLock && !canRead) {
             Hint("Telefon bu yetkiyi henüz vermedi: Erişilebilirlik'te Annem'i bir kez kapatıp yeniden aç.")

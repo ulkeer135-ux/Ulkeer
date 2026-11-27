@@ -105,7 +105,10 @@ class LockService : AccessibilityService() {
         val started = SystemClock.uptimeMillis()
         val poll = object : Runnable {
             override fun run() {
-                val found = try { findClearAll() } catch (e: Exception) { null }
+                val elapsed = SystemClock.uptimeMillis() - started
+                var found = try { findClearAll() } catch (e: Exception) { null }
+                // Adıyla bulunamadıysa: yerinden bul (son uygulamalar ekranının sol altındaki yuvarlak düğme).
+                if (found == null && elapsed > 600) found = try { findByLayout() } catch (e: Exception) { null }
                 when {
                     found === EMPTY -> {
                         // Açık uygulama yok: beklemeden bitir.
@@ -120,11 +123,21 @@ class LockService : AccessibilityService() {
                         if (ok) markCleared()
                         handler.postDelayed({ goHome(thenLock) }, 600)
                     }
-                    SystemClock.uptimeMillis() - started > 1_800 -> {
-                        // Düğme bulunamadı: yine de ana ekrana dön (ve ekranı kapat).
-                        record("Temizle düğmesi bulunamadı. Ekrandakiler: " + try { dumpClickables() } catch (e: Exception) { "okunamadı" })
-                        bump(KEY_CLEAR_MISS)
-                        goHome(thenLock)
+                    elapsed > 1_400 -> {
+                        // Ekran okunamıyor ya da düğme tanınmadı: düğmenin durduğu yere doğrudan dokun.
+                        val tapped = recentsShowing() && tapClearSpot()
+                        record(
+                            (if (tapped) "Düğmenin yerine dokunuldu. " else "Temizle düğmesi bulunamadı. ") +
+                                "Ekrandakiler: " + try { dumpClickables() } catch (e: Exception) { "okunamadı" }
+                        )
+                        if (tapped) {
+                            bump(KEY_CLEAR_OK)
+                            markCleared()
+                            handler.postDelayed({ goHome(thenLock) }, 700)
+                        } else {
+                            bump(KEY_CLEAR_MISS)
+                            goHome(thenLock)
+                        }
                     }
                     else -> handler.postDelayed(this, 150)
                 }
@@ -141,6 +154,67 @@ class LockService : AccessibilityService() {
     private fun finish(thenLock: Boolean) {
         clearing = false
         if (thenLock) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+    }
+
+    /** Ekranın altında, sol yarıda duran en alttaki yuvarlak/kare tıklanabilir öğe (süpürge düğmesi). */
+    private fun findByLayout(): AccessibilityNodeInfo? {
+        val dm = resources.displayMetrics
+        val w = dm.widthPixels
+        val h = dm.heightPixels
+        var best: AccessibilityNodeInfo? = null
+        var bestY = -1
+        for (root in recentsRoots()) {
+            val queue = ArrayDeque<AccessibilityNodeInfo>()
+            queue.add(root)
+            var seen = 0
+            while (queue.isNotEmpty() && seen < 800) {
+                val node = queue.removeFirst()
+                seen++
+                if (node.isClickable && node.isVisibleToUser) {
+                    val r = android.graphics.Rect()
+                    node.getBoundsInScreen(r)
+                    val ratio = if (r.height() > 0) r.width().toFloat() / r.height() else 0f
+                    if (r.width() in (w * 0.08f).toInt()..(w * 0.30f).toInt() && ratio in 0.7f..1.4f &&
+                        r.centerY() > h * 0.80f && r.centerX() < w * 0.5f && r.centerY() > bestY
+                    ) {
+                        best = node
+                        bestY = r.centerY()
+                    }
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return best
+    }
+
+    /** Son uygulamalar ekranının pencereleri (Annem ve sistem çubuğu hariç). */
+    private fun recentsRoots(): List<AccessibilityNodeInfo> {
+        val roots = mutableListOf<AccessibilityNodeInfo>()
+        rootInActiveWindow?.let { roots += it }
+        try { windows.forEach { win -> win.root?.let { roots += it } } } catch (e: Exception) { }
+        return roots.filter {
+            val p = it.packageName?.toString()
+            p != packageName && p != "com.android.systemui"
+        }.distinctBy { it.packageName?.toString() + it.windowId }
+    }
+
+    /** Öndeki pencere Annem değil mi (son uygulamalar ekranı açıldı mı)? */
+    private fun recentsShowing(): Boolean {
+        val p = rootInActiveWindow?.packageName?.toString() ?: return true
+        return p != packageName
+    }
+
+    /** Son çare: süpürge düğmesinin bu telefonlardaki yerine (sol alt) dokun. */
+    private fun tapClearSpot(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
+        val dm = resources.displayMetrics
+        val x = dm.widthPixels * 0.133f
+        val y = dm.heightPixels * 0.871f
+        val path = android.graphics.Path().apply { moveTo(x, y) }
+        val gesture = android.accessibilityservice.GestureDescription.Builder()
+            .addStroke(android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 60))
+            .build()
+        return try { dispatchGesture(gesture, null, null) } catch (e: Exception) { false }
     }
 
     private fun record(text: String) {
@@ -268,8 +342,8 @@ class LockService : AccessibilityService() {
             }
             if (!isSupported) { note("Bu Android sürümünde desteklenmiyor"); return false }
             val service = instance ?: run { note("Erişilebilirlik servisi çalışmıyor"); return false }
-            if (!canReadScreen) {
-                note("Ekranı okuma yetkisi yok: Erişilebilirlik'te Annem'i kapatıp yeniden aç")
+            if (!canReadScreen && !canGesture) {
+                note("Ekranı okuma/dokunma yetkisi yok: Erişilebilirlik'te Annem'i kapatıp yeniden aç")
                 return false
             }
             service.handler.post { service.runClear(thenLock) }
@@ -289,6 +363,13 @@ class LockService : AccessibilityService() {
 
         fun lastClearAt(context: Context): Long =
             context.getSharedPreferences("annem", Context.MODE_PRIVATE).getLong(KEY_LAST_CLEAR, 0L)
+
+        /** Servis ekrana dokunabiliyor mu (son çare dokunuşu için)? */
+        val canGesture: Boolean
+            get() {
+                val info = instance?.serviceInfo ?: return false
+                return info.capabilities and android.accessibilityservice.AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES != 0
+            }
 
         /** Servis ekran içeriğini okuyabiliyor mu (Tümünü temizle'yi bulmak için)? */
         val canReadScreen: Boolean
