@@ -67,6 +67,7 @@ fun SettingsScreen(
     dreams: com.annem.launcher.DreamStore,
     onBack: () -> Unit,
     onPickApp: (slotId: String) -> Unit,
+    onOpenSetup: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -115,6 +116,14 @@ fun SettingsScreen(
             fontSize = 16.sp,
             color = Palette.InkSoft,
         )
+
+        // --- Kurulum sihirbazı ---
+        androidx.compose.material3.Button(
+            onClick = onOpenSetup,
+            modifier = Modifier.fillMaxWidth().height(60.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Palette.Green),
+        ) { Text("Kurulum sihirbazı", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White) }
 
         // --- Kırmızı sayılar ---
         SectionTitle("Kırmızı bildirim sayıları")

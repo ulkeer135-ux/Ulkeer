@@ -33,12 +33,15 @@ import com.annem.launcher.ui.DreamScreen
 import com.annem.launcher.ui.HomeScreen
 import com.annem.launcher.ui.Palette
 import com.annem.launcher.ui.SettingsScreen
+import com.annem.launcher.ui.SetupWizard
+import com.annem.launcher.ui.SetupWizardScreen
 
 private sealed interface Screen {
     data object Home : Screen
     data object Contacts : Screen
     data object Settings : Screen
     data object Dreams : Screen
+    data object Setup : Screen
     data class PickApp(val slotId: String, val fromHome: Boolean) : Screen
 }
 
@@ -175,9 +178,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) {
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+    val appContext = androidx.compose.ui.platform.LocalContext.current
+    // Yeni telefonda (Annem henüz ana ekran değil, sihirbaz bitmemiş) ilk açılışta kurulum sihirbazı.
+    var screen by remember {
+        mutableStateOf<Screen>(if (SetupWizard.shouldAutoShow(appContext)) Screen.Setup else Screen.Home)
+    }
 
-    LaunchedEffect(homeSignal) { screen = Screen.Home }
+    // Sihirbaz açıkken ana ekran sinyali yok sayılır: "Ana ekran yap" adımında telefon Annem'i
+    // ana ekran olarak açınca sihirbaz kapanmasın. Sihirbazdan "Bitir" ya da geri tuşuyla çıkılır.
+    LaunchedEffect(homeSignal) { if (screen != Screen.Setup) screen = Screen.Home }
     // Rüya Tabirleri dışındaki her ekranda: ekranı açık tutma isteği kalmasın, telefon kendi
     // süresinde kararsın.
     val activityForAwake = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
@@ -222,7 +231,9 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                 dreams = dreams,
                 onBack = { screen = Screen.Home },
                 onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = false) },
+                onOpenSetup = { screen = Screen.Setup },
             )
+            Screen.Setup -> SetupWizardScreen(onFinish = { screen = Screen.Home })
             is Screen.PickApp -> AppPickerScreen(
                 title = "${Slots.title(current.slotId)} için uygulama seç",
                 backLabel = if (current.fromHome) "Ana Ekran" else "Ayarlar",
