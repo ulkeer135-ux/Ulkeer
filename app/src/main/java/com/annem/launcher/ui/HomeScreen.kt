@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +46,8 @@ import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -82,6 +86,8 @@ import com.annem.launcher.LockResult
 import com.annem.launcher.ScreenLock
 import com.annem.launcher.SettingsStore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.graphicsLayer
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -98,12 +104,15 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
+    var moreOpen by remember { mutableStateOf(false) }
     // Cihaz yöneticisi onay ekranı: sonuç gelince kurulduysa haber ver.
     val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         ScreenLock.reportActivation(context)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Çekmece açıkken arkadaki ana ekran yumuşakça bulanıklaşır (buzlu cam hissi, Android 12+).
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (moreOpen) 16.dp else 0.dp, label = "blur")
+    Box(modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
     // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
     Box(
         modifier = Modifier
@@ -195,13 +204,30 @@ fun HomeScreen(
             }
         }
 
-        LockButton(onClick = {
-            val result = ScreenLock.lock(context)
-            if (result != LockResult.LOCKED) lockProblem = result
-        })
+        // Ekranı Kapat tam genişlikte; "Daha fazla" sekmesi düğmenin üst kenarına oturur
+        // (yarısı kutularla düğme arasındaki boşlukta), dikeyde hiç yer kaplamaz.
+        // Sekme kutulara değmesin: düğmenin üstünde küçük ek boşluk.
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+            LockButton(onClick = {
+                val result = ScreenLock.lock(context)
+                if (result != LockResult.LOCKED) lockProblem = result
+            })
+            MoreTab(
+                onOpen = { moreOpen = true },
+                modifier = Modifier.align(Alignment.TopCenter).offset(y = (-13).dp),
+            )
+        }
     }
     }
 
+    if (moreOpen) {
+        MoreSheet(
+            store = store,
+            onDismiss = { moreOpen = false },
+            onPickApp = { id -> moreOpen = false; onPickApp(id) },
+            onOpenDreams = { moreOpen = false; onOpenDreams() },
+        )
+    }
     lockProblem?.let { problem ->
         AlertDialog(
             onDismissRequest = { lockProblem = null },
@@ -360,6 +386,7 @@ private fun SlotTile(
     onPickApp: (String) -> Unit,
     compact: Boolean = false,
     onOpenDreams: () -> Unit = {},
+    glass: Boolean = false,
 ) {
     val context = LocalContext.current
     val slot = store.slot(slotId)
@@ -372,6 +399,7 @@ private fun SlotTile(
             iconTint = iconTint,
             modifier = modifier,
             compact = compact,
+            glass = glass,
         ) { onOpenDreams() }
         return
     }
@@ -392,6 +420,7 @@ private fun SlotTile(
             modifier = modifier,
             appIcon = appIcon,
             compact = compact,
+            glass = glass,
         ) {
             if (!Actions.openApp(context, slot.packageName)) onPickApp(slotId)
         }
@@ -399,7 +428,7 @@ private fun SlotTile(
         Tile(
             if (compact) "Ekle" else "Uygulama ekle",
             Icons.Rounded.Add, Palette.EmptyBg, Palette.EmptyLine, Palette.EmptyIcon, modifier,
-            empty = true, compact = compact,
+            empty = true, compact = compact, glass = glass,
         ) {
             onPickApp(slotId)
         }
@@ -425,6 +454,8 @@ private fun Tile(
     compact: Boolean = false,
     /** Kendi çizdiğimiz sevimli simge (varsa düz simgenin yerine). */
     cuteIcon: (@Composable (Modifier) -> Unit)? = null,
+    /** Buzlu cam: "Daha fazla" çekmecesinde yarı saydam. */
+    glass: Boolean = false,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -433,8 +464,8 @@ private fun Tile(
         onClick = onClick,
         modifier = Modifier.fillMaxSize().then(if (empty) Modifier.dashedBorder(line, 28.dp) else Modifier),
         shape = shape,
-        color = Color.White,
-        border = if (empty) null else BorderStroke(2.dp, line),
+        color = if (glass) Color.White.copy(alpha = 0.55f) else Color.White,
+        border = if (empty) null else BorderStroke(if (glass) 1.5.dp else 2.dp, if (glass) Color.White.copy(alpha = 0.9f) else line),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Üst: renkli alan + simge
@@ -442,7 +473,7 @@ private fun Tile(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(background),
+                    .background(if (glass) background.copy(alpha = 0.6f) else background),
                 contentAlignment = Alignment.Center,
             ) {
                 val iconSize = (maxHeight * 0.62f).coerceIn(28.dp, 56.dp)
@@ -526,5 +557,136 @@ private fun LockButton(onClick: () -> Unit) {
         Icon(Icons.Rounded.NightsStay, contentDescription = null, tint = Palette.Moon, modifier = Modifier.size(34.dp))
         Spacer(Modifier.width(12.dp))
         Text("Ekranı Kapat", fontSize = 27.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+/** Ekranı Kapat'ın üst kenarındaki küçük sekme: dokun ya da yukarı kaydır → "Daha fazla" çekmecesi. */
+@Composable
+private fun MoreTab(onOpen: () -> Unit, modifier: Modifier) {
+    Surface(
+        onClick = onOpen,
+        // Buzlu cam: yarı saydam beyaz, ince beyaz kenar; altı Ekranı Kapat'ın üstüne biner.
+        shape = RoundedCornerShape(50),
+        // Beyaz yazı krem zeminde de okunsun diye cam hafif koyu tonlu.
+        color = Palette.Ink.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f)),
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .height(26.dp)
+            .semantics { contentDescription = "Daha fazla uygulama" }
+            .pointerInput(Unit) {
+                var total = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { _ -> total = 0f },
+                    onVerticalDrag = { _, dy: Float -> total += dy; if (total < -30f) { total = 0f; onOpen() } },
+                )
+            },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(3.dp))
+            Text("Daha fazla", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        }
+    }
+}
+
+/** Alttan açılan çekmece: 3 uygulama kutusu. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun MoreSheet(
+    store: SettingsStore,
+    onDismiss: () -> Unit,
+    onPickApp: (String) -> Unit,
+    onOpenDreams: () -> Unit,
+) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // "Kapat": WhatsApp'taki ek menüsü gibi balon toplanması — çekmece, alttaki "Daha fazla"
+    // sekmesine doğru küçülen bir daireyle kapanır, hafifçe küçülüp solar; sonra kaldırılır.
+    val slideOut = remember { androidx.compose.animation.core.Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    val closeAnimated: () -> Unit = {
+        if (!closing) {
+            closing = true
+            // Telefonun "animasyon hızı" ayarı (pil tasarrufu vb.) efekti kısaltmasın: süre hep gerçek 1 sn.
+            scope.launch(object : androidx.compose.ui.MotionDurationScale { override val scaleFactor = 1f }) {
+                slideOut.animateTo(
+                    1f,
+                    androidx.compose.animation.core.tween(
+                        durationMillis = 1000,
+                        easing = androidx.compose.animation.core.CubicBezierEasing(0.45f, 0f, 0.55f, 1f),
+                    ),
+                )
+                onDismiss()
+            }
+        }
+    }
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        modifier = Modifier.graphicsLayer {
+            val p = slideOut.value
+            if (p > 0f) {
+                // Balonun merkezi: çekmecenin alt ortası ("Daha fazla" sekmesinin olduğu yer).
+                val cx = size.width / 2f
+                val cy = size.height
+                val maxR = kotlin.math.hypot(cx, cy)
+                val r = maxR * (1f - p)
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                scaleX = 1f - 0.4f * p
+                scaleY = 1f - 0.4f * p
+                // Son kısma kadar net görünsün, sonda solsun.
+                alpha = if (p < 0.7f) 1f else 1f - (p - 0.7f) / 0.3f
+                clip = true
+                shape = androidx.compose.foundation.shape.GenericShape { _, _ ->
+                    addOval(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset(cx, cy), r))
+                }
+            }
+        },
+        containerColor = Palette.Cream.copy(alpha = 0.72f),
+        scrimColor = Color.Black.copy(alpha = 0.12f),
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("Daha fazla", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+            val colors = listOf(
+                Triple(Palette.SmsBg, Palette.SmsLine, Palette.SmsIcon),
+                Triple(Palette.CamBg, Palette.CamLine, Palette.CamIcon),
+                Triple(Palette.PicBg, Palette.PicLine, Palette.PicIcon),
+                Triple(Palette.Slot4Bg, Palette.Slot4Line, Palette.Slot4Icon),
+                Triple(Palette.Slot5Bg, Palette.Slot5Line, Palette.Slot5Icon),
+                Triple(Palette.Slot6Bg, Palette.Slot6Line, Palette.Slot6Icon),
+                Triple(Palette.ContactsBg, Palette.ContactsLine, Palette.ContactsIcon),
+                Triple(Palette.PhoneBg, Palette.PhoneLine, Palette.PhoneIcon),
+                Triple(Palette.WaBg, Palette.WaLine, Palette.WaIcon),
+            )
+            // 9 kutu: 3'erli üç sıra
+            Slots.MORE.chunked(3).forEachIndexed { r, row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(136.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    row.forEachIndexed { c, id ->
+                        val (bg, line, icon) = colors[r * 3 + c]
+                        SlotTile(
+                            store, id, bg, line, icon, Modifier.weight(1f).fillMaxHeight(),
+                            onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams, glass = true,
+                        )
+                    }
+                }
+            }
+            OutlinedButton(
+                onClick = closeAnimated,
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.5f)),
+            ) { Text("Kapat", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Ink) }
+        }
     }
 }
