@@ -109,7 +109,7 @@ fun HomeScreen(
 
     // Hava durumu çekmecesi açıkken arkadaki ana ekran yumuşakça bulanıklaşır (buzlu cam hissi, Android 12+).
     val behindBlur by androidx.compose.animation.core.animateDpAsState(if (weatherOpen) 16.dp else 0.dp, label = "blur")
-    Box(modifier = Modifier.fillMaxSize().homeReveal().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
+    Box(modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
     // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
     Box(
         modifier = Modifier

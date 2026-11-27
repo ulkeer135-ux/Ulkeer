@@ -12,8 +12,11 @@ android {
         applicationId = "com.annem.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 93
-        versionName = "2.81"
+        // Not: AnnemAnne.apk (bu dal) ve Annem.apk (annem-launcher dalı) aynı paket adını taşır.
+        // İkisi hep AYNI versionCode ile çıkarılır: böylece telefonda hangisi kuruluysa
+        // diğeri üzerine kurulabilir (Android yalnızca daha düşük sürümü reddeder).
+        versionCode = 95
+        versionName = "2.9"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.
