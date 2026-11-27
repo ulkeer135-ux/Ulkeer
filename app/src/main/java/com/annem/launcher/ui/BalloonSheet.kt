@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
  * Alttan açılan cam çekmece; "Kapat", aşağı itme, boşluğa dokunma ve geri tuşunda
  * WhatsApp'taki gibi balon toplanması efektiyle (1 sn) kapanır.
  * İçerik, kapatma işlevini (balon efektiyle) parametre olarak alır.
- * "Daha fazla" ve hava durumu çekmecesi bunu ortak kullanır.
+ * Hava durumu çekmecesi bunu kullanır.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +35,7 @@ internal fun BalloonSheet(
             if (value == androidx.compose.material3.SheetValue.Hidden) { closeRef[0](); false } else true
         },
     )
-    // "Kapat": WhatsApp'taki ek menüsü gibi balon toplanması — çekmece, alttaki "Daha fazla"
+    // "Kapat": WhatsApp'taki ek menüsü gibi balon toplanması — çekmece, alt ortaya
     // sekmesine doğru küçülen bir daireyle kapanır, hafifçe küçülüp solar; sonra kaldırılır.
     val slideOut = remember { androidx.compose.animation.core.Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
@@ -63,7 +63,7 @@ internal fun BalloonSheet(
         modifier = Modifier.graphicsLayer {
             val p = slideOut.value
             if (p > 0f) {
-                // Balonun merkezi: çekmecenin alt ortası ("Daha fazla" sekmesinin olduğu yer).
+                // Balonun merkezi: çekmecenin alt ortası.
                 val cx = size.width / 2f
                 val cy = size.height
                 val maxR = kotlin.math.hypot(cx, cy)

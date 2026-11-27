@@ -81,7 +81,7 @@ private const val RETRY_MS = 5L * 60L * 1000L    // hata olursa 5 dakika sonra t
  * Ekranın üstündeki büyük hava durumu kutusu. Telefonun yaklaşık konumunu kullanır
  * (izin yoksa ya da konum kapalıysa Ayarlar'daki şehri). Yalnızca ekran görünürken ve
  * en fazla 30 dakikada bir günceller; internet yoksa son bilinen değeri gösterir.
- * Dokununca saatlik ve günlük tahmin, "Daha fazla" gibi alttan açılan cam çekmecede görünür.
+ * Dokununca saatlik ve günlük tahmin alttan açılan cam çekmecede görünür.
  */
 @Composable
 fun WeatherTile(store: SettingsStore, modifier: Modifier, onDetailsVisible: (Boolean) -> Unit = {}) {
@@ -183,7 +183,7 @@ fun WeatherTile(store: SettingsStore, modifier: Modifier, onDetailsVisible: (Boo
                 // Kart kısa kalırsa (küçük ekran) konum satırı gizlenir; hiçbir yazı kesilmez.
                 val showPlace = maxHeight >= 116.dp
                 val bigCard = maxHeight >= 140.dp
-                // Çok kısa kart (Daha fazla şeridiyle 9 kutu): durum yazısı sıcaklığın sağına geçer.
+                // Çok kısa kart: durum yazısı sıcaklığın sağına geçer.
                 val sideText = maxHeight < 112.dp
                 val tempSp = if (bigCard) 54f else 44f
                 if (look.stars) {
