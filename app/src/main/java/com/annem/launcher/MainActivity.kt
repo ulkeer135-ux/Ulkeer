@@ -7,7 +7,10 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,12 +20,18 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -30,9 +39,13 @@ import com.annem.launcher.ui.AnnemTheme
 import com.annem.launcher.ui.AppPickerScreen
 import com.annem.launcher.ui.ContactsScreen
 import com.annem.launcher.ui.DreamScreen
+import com.annem.launcher.ui.HomeReturnCurtain
 import com.annem.launcher.ui.HomeScreen
 import com.annem.launcher.ui.Palette
 import com.annem.launcher.ui.SettingsScreen
+import com.annem.launcher.ui.SheetMotion
+import com.annem.launcher.ui.balloonCollapse
+import kotlinx.coroutines.withContext
 
 private sealed interface Screen {
     data object Home : Screen
@@ -197,6 +210,40 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
         screen = if (current is Screen.PickApp && !current.fromHome) Screen.Settings else Screen.Home
     }
 
+    // Kişiler, Rüya Tabirleri, Ayarlar ve uygulama seçici hava durumu çekmecesi gibi açılıp kapanır:
+    // ana ekranın üstüne alttan kayarak gelir, kapanırken alt ortaya doğru balonla toplanır.
+    // Ana ekran altta durur (kapanırken görünsün diye); bu ekranlar arası geçiş anında olur.
+    var shown by remember { mutableStateOf<Screen?>(null) }
+    val rise = remember { Animatable(0f) }
+    val collapse = remember { Animatable(0f) }
+    LaunchedEffect(screen) {
+        val target = screen
+        withContext(SheetMotion.NoSystemScale) {
+            if (target != Screen.Home) {
+                val fromHome = shown == null || collapse.value > 0f
+                shown = target
+                if (fromHome) {
+                    collapse.snapTo(0f)
+                    rise.snapTo(0f)
+                }
+                rise.animateTo(1f, tween(SheetMotion.OPEN_MS, easing = SheetMotion.OpenEasing))
+            } else if (shown != null) {
+                try {
+                    collapse.animateTo(1f, tween(SheetMotion.CLOSE_MS, easing = SheetMotion.CloseEasing))
+                } finally {
+                    // Yarıda yeni bir ekran açıldıysa (iptal) çekmece yerinde kalsın; yoksa kaldır.
+                    if (screen == Screen.Home) {
+                        shown = null
+                        rise.snapTo(0f)
+                        collapse.snapTo(0f)
+                    }
+                }
+            }
+        }
+    }
+    // Çekmece ekranı tamamen örttüğünde alttaki ana ekran çizilmez ve TalkBack'e görünmez.
+    val covered by remember { derivedStateOf { shown != null && rise.value >= 1f && collapse.value <= 0f } }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -207,37 +254,79 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
             // Yazı yazılan ekranlar (Ayarlar, uygulama seçici) kendi imePadding'ini uygular.
             .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)),
     ) {
-        when (val current = screen) {
-            Screen.Home -> HomeScreen(
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = if (covered) 0f else 1f }
+                .then(if (covered) Modifier.clearAndSetSemantics { } else Modifier),
+        ) {
+            HomeScreen(
                 store = store,
                 onOpenContacts = { screen = Screen.Contacts },
                 onOpenSettings = { screen = Screen.Settings },
                 onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
                 onOpenDreams = { screen = Screen.Dreams },
             )
-            Screen.Dreams -> {
-                androidx.compose.runtime.DisposableEffect(Unit) {
-                    MainActivity.dreamsVisible = true
-                    onDispose { MainActivity.dreamsVisible = false }
-                }
-                DreamScreen(store = dreams, onBack = { screen = Screen.Home })
-            }
-            Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
-            Screen.Settings -> SettingsScreen(
-                store = store,
-                dreams = dreams,
-                onBack = { screen = Screen.Home },
-                onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = false) },
-            )
-            is Screen.PickApp -> AppPickerScreen(
-                title = "${Slots.title(current.slotId)} için uygulama seç",
-                backLabel = if (current.fromHome) "Ana Ekran" else "Ayarlar",
-                onPick = { app ->
-                    store.setSlot(current.slotId, app.packageName, app.label)
-                    screen = if (current.fromHome) Screen.Home else Screen.Settings
-                },
-                onBack = { screen = if (current.fromHome) Screen.Home else Screen.Settings },
-            )
         }
+
+        val sheet = shown
+        if (sheet != null) {
+            // Hava durumu çekmecesindeki gibi arkada hafif bir gölge.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = rise.value * (1f - collapse.value) }
+                    .background(Color.Black.copy(alpha = 0.12f)),
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationY = size.height * (1f - rise.value)
+                        if (collapse.value > 0f) {
+                            balloonCollapse(collapse.value)
+                        } else if (rise.value < 1f) {
+                            // Kayarken üst köşeler çekmece gibi yuvarlak.
+                            shape = SheetTopShape
+                            clip = true
+                        }
+                    }
+                    .background(Palette.Cream)
+                    // Boş yere dokunulunca alttaki ana ekrandaki kutular açılmasın.
+                    .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } },
+            ) {
+                when (sheet) {
+                    Screen.Home -> Unit
+                    Screen.Dreams -> {
+                        androidx.compose.runtime.DisposableEffect(Unit) {
+                            MainActivity.dreamsVisible = true
+                            onDispose { MainActivity.dreamsVisible = false }
+                        }
+                        DreamScreen(store = dreams, onBack = { screen = Screen.Home })
+                    }
+                    Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
+                    Screen.Settings -> SettingsScreen(
+                        store = store,
+                        dreams = dreams,
+                        onBack = { screen = Screen.Home },
+                        onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = false) },
+                    )
+                    is Screen.PickApp -> AppPickerScreen(
+                        title = "${Slots.title(sheet.slotId)} için uygulama seç",
+                        backLabel = if (sheet.fromHome) "Ana Ekran" else "Ayarlar",
+                        onPick = { app ->
+                            store.setSlot(sheet.slotId, app.packageName, app.label)
+                            screen = if (sheet.fromHome) Screen.Home else Screen.Settings
+                        },
+                        onBack = { screen = if (sheet.fromHome) Screen.Home else Screen.Settings },
+                    )
+                }
+            }
+        }
+
+        // Başka bir uygulamadan dönünce: hava durumu kapanışı gibi balonla toplanan çekmece.
+        HomeReturnCurtain()
     }
 }
+
+private val SheetTopShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
