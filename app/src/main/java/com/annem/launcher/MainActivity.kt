@@ -104,8 +104,8 @@ class MainActivity : ComponentActivity() {
             val prefs = getSharedPreferences("annem", MODE_PRIVATE)
             // Boşta kalınca: telefon ekranı kapatmadan hemen önce arka plan uygulamalarını da kapat
             // (yalnızca son temizlikten sonra Annem'den uygulama açıldıysa; yoksa boşuna yanıp sönmesin).
-            val clearIdle = prefs.getBoolean(SettingsStore.KEY_CLEAR_ON_IDLE, true) &&
-                prefs.getBoolean(SettingsStore.KEY_CLEAR_ON_LOCK, true) &&
+            val clearIdle = prefs.getBoolean("clear_on_idle", true) &&
+                prefs.getBoolean("clear_on_lock", true) &&
                 LockService.appsUsedSinceClear(this@MainActivity) && LockService.canReadScreen
             if (usable && interactive && clearIdle && idle > timeout - 2_500) {
                 lastInteraction = android.os.SystemClock.uptimeMillis()
@@ -140,9 +140,9 @@ class MainActivity : ComponentActivity() {
     /** Aralıklı temizlik: uygulamadan ana ekrana dönünce, son temizlikten belirlenen süre geçtiyse. */
     private val intervalClear = Runnable {
         val prefs = getSharedPreferences("annem", MODE_PRIVATE)
-        val hours = prefs.getInt(SettingsStore.KEY_CLEAR_INTERVAL, 3)
+        val hours = prefs.getInt("clear_interval_hours", 3)
         val due = System.currentTimeMillis() - LockService.lastClearAt(this) > hours * 3_600_000L
-        if (hours > 0 && due && prefs.getBoolean(SettingsStore.KEY_CLEAR_ON_LOCK, true) &&
+        if (hours > 0 && due && prefs.getBoolean("clear_on_lock", true) &&
             !dreamsVisible && isInFront && LockService.canReadScreen
         ) {
             LockService.clearRecents(this, thenLock = false)
