@@ -12,9 +12,9 @@ android {
         applicationId = "com.annem.launcher"
         minSdk = 26
         targetSdk = 35
-        // Not: annem-anne dalı (annenin telefonu, AnnemAnne.apk) versionCode 85 kullandı; buradaki bir sonraki sürüm en az 86 olmalı.
-        versionCode = 91
-        versionName = "2.80"
+        // Not: annem-anne dalı (annenin telefonu, AnnemAnne.apk) versionCode 93 kullandı; buradaki bir sonraki sürüm en az 94 olmalı.
+        versionCode = 92
+        versionName = "2.81"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.

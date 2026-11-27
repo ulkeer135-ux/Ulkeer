@@ -136,33 +136,6 @@ class SettingsStore(context: Context) {
         prefs.edit().putBoolean(KEY_FAST_HOME, enabled).apply()
     }
 
-    /** "Ekranı Kapat": önce arka plandaki uygulamaları (son uygulamalar → Tümünü temizle) kapat. */
-    var clearOnLock by mutableStateOf(prefs.getBoolean(KEY_CLEAR_ON_LOCK, true))
-        private set
-
-    fun updateClearOnLock(enabled: Boolean) {
-        clearOnLock = enabled
-        prefs.edit().putBoolean(KEY_CLEAR_ON_LOCK, enabled).apply()
-    }
-
-    /** Ana ekran boşta kalıp kendiliğinden kapanırken de arka plan uygulamalarını kapat. */
-    var clearOnIdle by mutableStateOf(prefs.getBoolean(KEY_CLEAR_ON_IDLE, true))
-        private set
-
-    fun updateClearOnIdle(enabled: Boolean) {
-        clearOnIdle = enabled
-        prefs.edit().putBoolean(KEY_CLEAR_ON_IDLE, enabled).apply()
-    }
-
-    /** Aralıklı temizlik (saat; 0 = kapalı): ana ekrana dönünce, son temizlikten bu kadar geçtiyse. */
-    var clearIntervalHours by mutableStateOf(prefs.getInt(KEY_CLEAR_INTERVAL, 3))
-        private set
-
-    fun updateClearIntervalHours(hours: Int) {
-        clearIntervalHours = hours
-        prefs.edit().putInt(KEY_CLEAR_INTERVAL, hours).apply()
-    }
-
     /** Telefonun konumundan bulunan son semt adı (ör. "Kadıköy"). */
     var devicePlaceName: String?
         get() = prefs.getString(KEY_DEVICE_PLACE, null)
@@ -266,9 +239,6 @@ class SettingsStore(context: Context) {
         const val KEY_GREETING = "greeting_name"
         const val KEY_BADGES = "badges_enabled"
         const val KEY_FAST_HOME = "fast_home"
-        const val KEY_CLEAR_ON_LOCK = "clear_on_lock"
-        const val KEY_CLEAR_ON_IDLE = "clear_on_idle"
-        const val KEY_CLEAR_INTERVAL = "clear_interval_hours"
         const val KEY_TILES = "tile_count"
         const val KEY_FAVORITES = "contact_favorites"
         const val KEY_LABELS = "contact_labels"

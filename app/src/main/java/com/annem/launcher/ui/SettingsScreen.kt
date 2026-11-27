@@ -516,55 +516,6 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(12.dp))
         Hint(
-            "Ekranı Kapat'ta arka plan uygulamalarını kapat: düğmeye basınca telefon bir an son " +
-                "uygulamalar ekranını açar, \"Tümünü temizle\"ye basar, sonra ekranı kapatır " +
-                "(yaklaşık 1,5 sn). \"Ekranı Kapat\" Yol 1 (Erişilebilirlik) açık olmalı."
-        )
-        val canRead = remember(lifecycleState) { LockService.canReadScreen || LockService.canGesture }
-        StatusRow("Arka plan uygulamalarını kapat", store.clearOnLock && lockEnabled && canRead, onText = "Açık", offText = "Kapalı")
-        if (lockEnabled && store.clearOnLock && !canRead) {
-            Hint("Telefon bu yetkiyi henüz vermedi: Erişilebilirlik'te Annem'i bir kez kapatıp yeniden aç.")
-        }
-        OutlinedButton(onClick = { store.updateClearOnLock(!store.clearOnLock) }) {
-            Text(if (store.clearOnLock) "Arka plan kapatmayı kapat" else "Arka plan kapatmayı aç", fontSize = 18.sp)
-        }
-        if (store.clearOnLock) {
-            Spacer(Modifier.height(8.dp))
-            Hint(
-                "Boşta kalınca: ana ekran dokunulmadan beklerken, telefon ekranı kapatmadan hemen önce " +
-                    "arka plan uygulamaları da kapatılır (Annem'den uygulama açılmışsa)."
-            )
-            StatusRow("Boşta kalınca da kapat", store.clearOnIdle, onText = "Açık", offText = "Kapalı")
-            OutlinedButton(onClick = { store.updateClearOnIdle(!store.clearOnIdle) }) {
-                Text(if (store.clearOnIdle) "Boşta kapatmayı kapat" else "Boşta kapatmayı aç", fontSize = 18.sp)
-            }
-            Spacer(Modifier.height(8.dp))
-            val hours = store.clearIntervalHours
-            Hint(
-                "Belli aralıklarla: bir uygulamadan ana ekrana dönünce, son temizlikten bu süre geçtiyse " +
-                    "arka plan uygulamaları kendiliğinden kapatılır (ekran kapanmaz)."
-            )
-            StatusRow(
-                "Aralıklı temizlik",
-                hours > 0,
-                onText = "$hours saatte bir",
-                offText = "Kapalı",
-            )
-            OutlinedButton(onClick = {
-                val next = when (hours) { 0 -> 1; 1 -> 3; 3 -> 6; else -> 0 }
-                store.updateClearIntervalHours(next)
-            }) {
-                Text("Aralığı değiştir (Kapalı → 1 → 3 → 6 saat)", fontSize = 18.sp)
-            }
-            Spacer(Modifier.height(8.dp))
-            Hint(
-                "Bazı uygulamalar kapanmasın (ör. WhatsApp, müzik): telefonun son uygulamalar ekranını aç, " +
-                    "o uygulamanın kartını aşağı çek ya da üstündeki menüden \"Kilitle\"ye bas. " +
-                    "Kilitli uygulamaları \"Tümünü temizle\" kapatmaz; Annem de aynı düğmeyi kullandığı için onlara dokunmaz."
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Hint(
             "Ana ekran tuşunda telefon bir an duvar kağıdını gösteriyor (telefonun kendi geçiş " +
                 "animasyonu). Duvar kağıdını Annem'in zeminiyle aynı yaparsan bu an fark edilmez. " +
                 "Kilit ekranı değişmez."

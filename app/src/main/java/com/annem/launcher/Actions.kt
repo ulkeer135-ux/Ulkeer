@@ -93,7 +93,6 @@ object Actions {
         }
         // Dönüşte ana ekran balonla açılsın.
         com.annem.launcher.ui.HomeReveal.markAppLaunched()
-        LockService.markAppsUsed(context)
         true
     } catch (e: ActivityNotFoundException) {
         false

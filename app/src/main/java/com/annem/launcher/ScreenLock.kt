@@ -21,16 +21,6 @@ enum class LockResult { LOCKED, NOT_SET_UP, SERVICE_NOT_CONNECTED }
  */
 object ScreenLock {
 
-    /**
-     * Ana ekrandaki "Ekranı Kapat" düğmesi: ayar açıksa önce arka plandaki uygulamalar kapatılır
-     * (son uygulamalar → Tümünü temizle), sonra ekran kapanır. Servis yoksa normal kilit.
-     * (Boşta kendiliğinden kapanma bunu kullanmaz; o yalnızca ekranı kapatır.)
-     */
-    fun lockFromButton(context: Context, clearApps: Boolean): LockResult {
-        if (clearApps && LockService.clearRecentsThenLock(context)) return LockResult.LOCKED
-        return lock(context)
-    }
-
     fun lock(context: Context): LockResult {
         if (LockService.lock()) return LockResult.LOCKED
         if (isAdminActive(context)) {
