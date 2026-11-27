@@ -100,11 +100,21 @@ class MainActivity : ComponentActivity() {
             val usable = timeout in 5_000 until 24 * 3600_000 && !ScreenAwake.stayOnWhilePlugged(this@MainActivity)
             val pm = getSystemService(android.os.PowerManager::class.java)
             val idle = android.os.SystemClock.uptimeMillis() - lastInteraction
-            if (usable && !dreamsVisible && pm?.isInteractive == true && idle > timeout + 3_000) {
+            val interactive = !dreamsVisible && pm?.isInteractive == true
+            val prefs = getSharedPreferences("annem", MODE_PRIVATE)
+            // Boşta kalınca: telefon ekranı kapatmadan hemen önce arka plan uygulamalarını da kapat
+            // (yalnızca son temizlikten sonra Annem'den uygulama açıldıysa; yoksa boşuna yanıp sönmesin).
+            val clearIdle = prefs.getBoolean(SettingsStore.KEY_CLEAR_ON_IDLE, true) &&
+                prefs.getBoolean(SettingsStore.KEY_CLEAR_ON_LOCK, true) &&
+                LockService.appsUsedSinceClear(this@MainActivity) && LockService.canReadScreen
+            if (usable && interactive && clearIdle && idle > timeout - 2_500) {
+                lastInteraction = android.os.SystemClock.uptimeMillis()
+                LockService.clearRecents(this@MainActivity, thenLock = true)
+            } else if (usable && interactive && idle > timeout + 3_000) {
                 lastInteraction = android.os.SystemClock.uptimeMillis()
                 ScreenLock.lock(this@MainActivity)
             }
-            idleHandler.postDelayed(this, 2_000)
+            idleHandler.postDelayed(this, 1_000)
         }
     }
 
@@ -121,14 +131,35 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         // Annem'den açılan bir uygulamadan dönülüyorsa: ana ekran balon gibi açılarak gelsin.
+        returningFromApp = com.annem.launcher.ui.HomeReveal.launchedApp
         com.annem.launcher.ui.HomeReveal.startIfReturning()
+    }
+
+    private var returningFromApp = false
+
+    /** Aralıklı temizlik: uygulamadan ana ekrana dönünce, son temizlikten belirlenen süre geçtiyse. */
+    private val intervalClear = Runnable {
+        val prefs = getSharedPreferences("annem", MODE_PRIVATE)
+        val hours = prefs.getInt(SettingsStore.KEY_CLEAR_INTERVAL, 3)
+        val due = System.currentTimeMillis() - LockService.lastClearAt(this) > hours * 3_600_000L
+        if (hours > 0 && due && prefs.getBoolean(SettingsStore.KEY_CLEAR_ON_LOCK, true) &&
+            !dreamsVisible && isInFront && LockService.canReadScreen
+        ) {
+            LockService.clearRecents(this, thenLock = false)
+        }
     }
 
     override fun onResume() {
         super.onResume()
         lastInteraction = android.os.SystemClock.uptimeMillis()
         idleHandler.removeCallbacks(idleCheck)
-        idleHandler.postDelayed(idleCheck, 2_000)
+        idleHandler.postDelayed(idleCheck, 1_000)
+        if (returningFromApp) {
+            returningFromApp = false
+            // Balon açılışı bittikten sonra.
+            idleHandler.removeCallbacks(intervalClear)
+            idleHandler.postDelayed(intervalClear, 1_200)
+        }
         if (!dreamsVisible) ScreenAwake.release(this)
         visible = this
         BadgeService.ensureConnected(this)
@@ -136,6 +167,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         idleHandler.removeCallbacks(idleCheck)
+        idleHandler.removeCallbacks(intervalClear)
         if (visible === this) visible = null
         focused = false
         super.onPause()

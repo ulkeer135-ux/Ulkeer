@@ -90,28 +90,38 @@ class LockService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     @Volatile private var clearing = false
 
-    /** Son uygulamalar → "Tümünü temizle" → ana ekran → kilit. Düğme bulunamazsa yine kilitler. */
-    private fun runClearThenLock() {
+    /**
+     * Son uygulamalar → "Tümünü temizle" → ana ekran → (istenirse) kilit.
+     * Düğme bulunamazsa ya da liste boşsa yine ana ekrana döner (ve kilitler).
+     * Telefonun son uygulamalar ekranında "Kilitle" ile kilitlenen uygulamalar temizlenmez.
+     */
+    private fun runClear(thenLock: Boolean) {
         if (clearing) return
         clearing = true
         if (!performGlobalAction(GLOBAL_ACTION_RECENTS)) {
-            finishLock()
+            finish(thenLock)
             return
         }
         val started = SystemClock.uptimeMillis()
         val poll = object : Runnable {
             override fun run() {
-                val button = try { findClearAll() } catch (e: Exception) { null }
+                val found = try { findClearAll() } catch (e: Exception) { null }
                 when {
-                    button != null -> {
-                        val ok = button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        bump(if (ok) KEY_CLEAR_OK else KEY_CLEAR_MISS)
-                        handler.postDelayed({ goHomeThenLock() }, 600)
+                    found === EMPTY -> {
+                        // Açık uygulama yok: beklemeden bitir.
+                        markCleared()
+                        goHome(thenLock)
                     }
-                    SystemClock.uptimeMillis() - started > 2_200 -> {
-                        // Son uygulama yok ya da düğme bulunamadı: yine de ekranı kapat.
+                    found != null -> {
+                        val ok = found.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        bump(if (ok) KEY_CLEAR_OK else KEY_CLEAR_MISS)
+                        if (ok) markCleared()
+                        handler.postDelayed({ goHome(thenLock) }, 600)
+                    }
+                    SystemClock.uptimeMillis() - started > 1_800 -> {
+                        // Düğme bulunamadı: yine de ana ekrana dön (ve ekranı kapat).
                         bump(KEY_CLEAR_MISS)
-                        goHomeThenLock()
+                        goHome(thenLock)
                     }
                     else -> handler.postDelayed(this, 150)
                 }
@@ -120,14 +130,21 @@ class LockService : AccessibilityService() {
         handler.postDelayed(poll, 350)
     }
 
-    private fun goHomeThenLock() {
+    private fun goHome(thenLock: Boolean) {
         performGlobalAction(GLOBAL_ACTION_HOME)
-        handler.postDelayed({ finishLock() }, 300)
+        handler.postDelayed({ finish(thenLock) }, 300)
     }
 
-    private fun finishLock() {
+    private fun finish(thenLock: Boolean) {
         clearing = false
-        performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        if (thenLock) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+    }
+
+    private fun markCleared() {
+        getSharedPreferences("annem", MODE_PRIVATE).edit()
+            .putLong(KEY_LAST_CLEAR, System.currentTimeMillis())
+            .putBoolean(KEY_DIRTY, false)
+            .apply()
     }
 
     private fun bump(key: String) {
@@ -135,7 +152,7 @@ class LockService : AccessibilityService() {
         p.edit().putInt(key, p.getInt(key, 0) + 1).apply()
     }
 
-    /** Son uygulamalar ekranındaki "Tümünü temizle" düğmesi (ColorOS ve diğerleri). */
+    /** Son uygulamalar ekranındaki "Tümünü temizle" düğmesi; liste boşsa EMPTY. */
     private fun findClearAll(): AccessibilityNodeInfo? {
         val roots = mutableListOf<AccessibilityNodeInfo>()
         rootInActiveWindow?.let { roots += it }
@@ -154,6 +171,7 @@ class LockService : AccessibilityService() {
         while (queue.isNotEmpty() && seen < 600) {
             val node = queue.removeFirst()
             seen++
+            if (isEmptyText(node)) return EMPTY
             if (isClearAll(node)) {
                 var n: AccessibilityNodeInfo? = node
                 while (n != null && !n.isClickable) n = n.parent
@@ -162,6 +180,11 @@ class LockService : AccessibilityService() {
             for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
         }
         return null
+    }
+
+    private fun isEmptyText(node: AccessibilityNodeInfo): Boolean {
+        val t = node.text?.toString()?.lowercase(java.util.Locale("tr")) ?: return false
+        return EMPTY_WORDS.any { t.contains(it) }
     }
 
     private fun isClearAll(node: AccessibilityNodeInfo): Boolean {
@@ -182,19 +205,41 @@ class LockService : AccessibilityService() {
 
         private const val KEY_CLEAR_OK = "clear_all_ok"
         private const val KEY_CLEAR_MISS = "clear_all_miss"
+        private const val KEY_LAST_CLEAR = "clear_last_at"
+        /** Son temizlikten sonra Annem'den uygulama açıldı mı? */
+        const val KEY_DIRTY = "apps_used_since_clear"
+        /** "Liste boş" işareti (gerçek bir düğüm değil). */
+        private val EMPTY: AccessibilityNodeInfo = AccessibilityNodeInfo.obtain()
+        private val EMPTY_WORDS = listOf(
+            "son uygulama yok", "yakın zamanda kullanılan", "uygulama yok", "no recent", "nothing here",
+        )
         private val CLEAR_WORDS = listOf(
             "tümünü temizle", "hepsini temizle", "tümünü kapat", "hepsini kapat", "temizle",
             "clear all", "close all", "clear",
         )
 
         /** Önce arka plan uygulamalarını kapatıp sonra kilitler (arka planda); servis yoksa false. */
-        fun clearRecentsThenLock(context: Context): Boolean {
+        fun clearRecentsThenLock(context: Context): Boolean = clearRecents(context, thenLock = true)
+
+        /** Arka plan uygulamalarını kapatır; thenLock ise ardından ekranı kapatır. */
+        fun clearRecents(context: Context, thenLock: Boolean): Boolean {
             if (!isSupported) return false
             val service = instance ?: return false
             if (!canReadScreen) return false
-            service.handler.post { service.runClearThenLock() }
+            service.handler.post { service.runClear(thenLock) }
             return true
         }
+
+        /** Annem'den uygulama açılınca çağrılır: bir sonraki otomatik temizlik gerekli olsun. */
+        fun markAppsUsed(context: Context) {
+            context.getSharedPreferences("annem", Context.MODE_PRIVATE).edit().putBoolean(KEY_DIRTY, true).apply()
+        }
+
+        fun appsUsedSinceClear(context: Context): Boolean =
+            context.getSharedPreferences("annem", Context.MODE_PRIVATE).getBoolean(KEY_DIRTY, true)
+
+        fun lastClearAt(context: Context): Long =
+            context.getSharedPreferences("annem", Context.MODE_PRIVATE).getLong(KEY_LAST_CLEAR, 0L)
 
         /** Servis ekran içeriğini okuyabiliyor mu (Tümünü temizle'yi bulmak için)? */
         val canReadScreen: Boolean
