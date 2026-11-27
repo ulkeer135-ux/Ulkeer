@@ -169,8 +169,17 @@ fun HomeScreen(
                 }
             }
             tiles += { m ->
+                // Telefonda yüklü WhatsApp'ın kendi orijinal simgesi (yoksa WhatsApp Business'ınki);
+                // ikisi de yoksa eski düz simge kalır.
+                val waIcon by produceState(
+                    initialValue = InstalledApps.cachedIcon("com.whatsapp") ?: InstalledApps.cachedIcon("com.whatsapp.w4b"),
+                ) {
+                    value = InstalledApps.loadIcon(context, "com.whatsapp")
+                        ?: InstalledApps.loadIcon(context, "com.whatsapp.w4b")
+                }
                 Tile(
                     "WhatsApp", Icons.Rounded.Forum, Palette.WaBg, Palette.WaLine, Palette.WaIcon, m,
+                    appIcon = waIcon,
                     badge = if (showBadges) Badges.whatsapp else 0,
                     badgeWord = "okunmamış mesaj",
                     compact = nine,
