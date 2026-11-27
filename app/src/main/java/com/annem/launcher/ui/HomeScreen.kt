@@ -595,8 +595,8 @@ private fun MoreSheet(
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    // "Kapat": çekmece yavaşça (650 ms) aşağı kayarak kapansın, sonra kaldırılsın.
-    // Hazır hide() animasyonu çok hızlı ve süresi ayarlanamıyor; kendi kaydırmamızı yapıyoruz.
+    // "Kapat": WhatsApp'taki ek menüsü gibi balon toplanması — çekmece, alttaki "Daha fazla"
+    // sekmesine doğru küçülen bir daireyle kapanır, hafifçe küçülüp solar; sonra kaldırılır.
     val slideOut = remember { androidx.compose.animation.core.Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
     val closeAnimated: () -> Unit = {
@@ -606,7 +606,7 @@ private fun MoreSheet(
                 slideOut.animateTo(
                     1f,
                     androidx.compose.animation.core.tween(
-                        durationMillis = 650,
+                        durationMillis = 550,
                         easing = androidx.compose.animation.core.FastOutSlowInEasing,
                     ),
                 )
@@ -617,7 +617,24 @@ private fun MoreSheet(
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        modifier = Modifier.graphicsLayer { translationY = size.height * 1.1f * slideOut.value },
+        modifier = Modifier.graphicsLayer {
+            val p = slideOut.value
+            if (p > 0f) {
+                // Balonun merkezi: çekmecenin alt ortası ("Daha fazla" sekmesinin olduğu yer).
+                val cx = size.width / 2f
+                val cy = size.height
+                val maxR = kotlin.math.hypot(cx, cy)
+                val r = maxR * (1f - p)
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                scaleX = 1f - 0.25f * p
+                scaleY = 1f - 0.25f * p
+                alpha = 1f - p * p
+                clip = true
+                shape = androidx.compose.foundation.shape.GenericShape { _, _ ->
+                    addOval(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset(cx, cy), r))
+                }
+            }
+        },
         containerColor = Palette.Cream.copy(alpha = 0.72f),
         scrimColor = Color.Black.copy(alpha = 0.12f),
         tonalElevation = 0.dp,
