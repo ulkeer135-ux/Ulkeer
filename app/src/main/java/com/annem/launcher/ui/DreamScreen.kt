@@ -52,6 +52,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.ui.graphics.graphicsLayer
@@ -116,6 +120,9 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
     var speaking by remember { mutableStateOf(false) }
     var preparing by remember { mutableStateOf(false) }
     var liveReading by remember { mutableStateOf("") }
+    // Klavyeyle yazarak sorma.
+    var typing by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
     // "Soruları yanıtla" modundaysa yanıtlanan yorum (değilse null).
     var followUpFor by remember { mutableStateOf<DreamEntry?>(null) }
     val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -365,8 +372,28 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
                     fontSize = 20.sp,
                     color = Palette.InkSoft,
                 )
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    BigMicButton(listening = false) { startListening() }
+                if (typing) {
+                    TypeCard(
+                        value = typed,
+                        onValue = { typed = it },
+                        label = if (followUpFor != null) "Cevabınızı ya da ayrıntıyı yazın" else "Rüyanızı yazın",
+                        onSend = {
+                            val q = typed.trim()
+                            if (q.isNotEmpty()) {
+                                typing = false
+                                typed = ""
+                                transcript = q
+                                interpret(q)
+                            }
+                        },
+                        onCancel = { typing = false; followUpFor = null },
+                    )
+                } else {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        BigMicButton(listening = false) { startListening() }
+                        // Mikrofonun yanında küçük klavye: yazarak sor.
+                        KeyboardButton(modifier = Modifier.align(Alignment.BottomEnd)) { tts.stop(); typing = true }
+                    }
                 }
                 notice?.let { InfoCard(it) }
                 DreamHistory(store, onOpen = { entry ->
@@ -411,6 +438,26 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
                     Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(32.dp))
                     Spacer(Modifier.width(10.dp))
                     Text("Bitti, yorumla", fontSize = 26.sp, fontWeight = FontWeight.Black)
+                }
+                // Konuşma tanıma yanlış yazdıysa: dinlemeyi durdur, yazıyı klavyeyle düzeltip gönder.
+                if (shown.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            listener.cancel()
+                            typed = shown
+                            transcript = ""
+                            partial = ""
+                            typing = true
+                            phase = Phase.Idle
+                        },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(2.dp, DreamPurple),
+                    ) {
+                        Icon(Icons.Rounded.Edit, contentDescription = null, tint = DreamPurple, modifier = Modifier.size(26.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Yazıyı düzelt", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = DreamPurple)
+                    }
                 }
                 OutlinedButton(
                     onClick = {
@@ -463,14 +510,14 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
                     Text(if (speaking) "Okumayı durdur" else "Yorumu tekrar dinle", fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
                 val asks = questions.isNotEmpty()
-                run {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Button(
                         onClick = {
                             tts.stop()
                             followUpFor = p.entry
                             startListening()
                         },
-                        modifier = Modifier.fillMaxWidth().height(72.dp),
+                        modifier = Modifier.weight(1f).height(72.dp),
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
                     ) {
@@ -478,12 +525,32 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
                         Spacer(Modifier.width(10.dp))
                         Text(if (asks) "Soruları yanıtla" else "Ayrıntı ekle", fontSize = 24.sp, fontWeight = FontWeight.Black)
                     }
+                    Spacer(Modifier.width(10.dp))
+                    KeyboardButton(size = 72.dp, color = Palette.Green, showLabel = false) {
+                        tts.stop()
+                        followUpFor = p.entry
+                        typed = ""
+                        typing = true
+                        phase = Phase.Idle
+                    }
                 }
-                NewDreamButton {
-                    // Tek dokunuşla doğrudan dinlemeye başla.
-                    tts.stop()
-                    followUpFor = null
-                    startListening()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        NewDreamButton {
+                            // Tek dokunuşla doğrudan dinlemeye başla.
+                            tts.stop()
+                            followUpFor = null
+                            startListening()
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    KeyboardButton(size = 60.dp, showLabel = false) {
+                        tts.stop()
+                        followUpFor = null
+                        typed = ""
+                        typing = true
+                        phase = Phase.Idle
+                    }
                 }
                 Text(
                     "Rüya yorumları geleneksel tabirlere dayanır; eğlence ve gönül huzuru içindir." +
@@ -558,6 +625,87 @@ private fun BigMicButton(listening: Boolean, onClick: () -> Unit) {
         if (!listening) {
             Spacer(Modifier.height(10.dp))
             Text("Rüyamı anlat", fontSize = 26.sp, fontWeight = FontWeight.Black, color = DreamPurple)
+        }
+    }
+}
+
+/** Küçük klavye düğmesi: telefonun klavyesiyle yazarak sormak için. */
+@Composable
+private fun KeyboardButton(
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 64.dp,
+    color: Color = DreamPurple,
+    showLabel: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier.size(size),
+            shape = if (showLabel) CircleShape else RoundedCornerShape(18.dp),
+            border = BorderStroke(2.dp, color),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = color),
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            Icon(Icons.Rounded.Keyboard, contentDescription = "Yazarak anlat", modifier = Modifier.size(size * 0.5f))
+        }
+        if (showLabel) {
+            Spacer(Modifier.height(4.dp))
+            Text("Yaz", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color)
+        }
+    }
+}
+
+/** Klavyeyle soru yazma kartı: açılınca klavye kendiliğinden gelir. */
+@Composable
+private fun TypeCard(value: String, onValue: (String) -> Unit, label: String, onSend: () -> Unit, onCancel: () -> Unit) {
+    // İmleç, (sesle gelen) yazının sonunda başlasın.
+    var field by remember {
+        mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(value, androidx.compose.ui.text.TextRange(value.length)))
+    }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(150)
+        try { focus.requestFocus(); keyboard?.show() } catch (_: Exception) { }
+    }
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        border = BorderStroke(2.dp, DreamPurpleLine),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            androidx.compose.material3.OutlinedTextField(
+                value = field,
+                onValueChange = { field = it; onValue(it.text) },
+                label = { Text(label, fontSize = 18.sp) },
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 21.sp, color = Palette.Ink),
+                minLines = 3,
+                maxLines = 8,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                ),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = { keyboard?.hide(); onCancel() },
+                    modifier = Modifier.height(60.dp),
+                    shape = RoundedCornerShape(18.dp),
+                ) { Text("Vazgeç", fontSize = 20.sp, color = Palette.Ink) }
+                Button(
+                    onClick = { keyboard?.hide(); onSend() },
+                    enabled = value.isNotBlank(),
+                    modifier = Modifier.weight(1f).height(60.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DreamPurple, contentColor = Color.White),
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null, modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Gönder", fontSize = 21.sp, fontWeight = FontWeight.Black)
+                }
+            }
         }
     }
 }
