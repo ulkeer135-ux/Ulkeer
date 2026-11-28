@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -101,10 +102,11 @@ private fun AppRow(app: InstalledApp, onClick: () -> Unit) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 if (com.annem.launcher.InternalApps.isInternal(app.packageName)) {
+                    val ask = app.packageName == com.annem.launcher.InternalApps.ASK
                     androidx.compose.material3.Icon(
-                        Icons.Rounded.Bedtime,
+                        if (ask) Icons.Rounded.SmartToy else Icons.Rounded.Bedtime,
                         contentDescription = null,
-                        tint = Color(0xFF5B3FA0),
+                        tint = if (ask) Color(0xFF1F6FA8) else Color(0xFF5B3FA0),
                         modifier = Modifier.size(40.dp),
                     )
                 } else {

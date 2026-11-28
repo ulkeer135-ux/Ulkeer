@@ -41,6 +41,7 @@ private sealed interface Screen {
     data object Contacts : Screen
     data object Settings : Screen
     data object Dreams : Screen
+    data object Ask : Screen
     data object Setup : Screen
     data class PickApp(val slotId: String, val fromHome: Boolean) : Screen
 }
@@ -191,7 +192,7 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
     // süresinde kararsın.
     val activityForAwake = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
     LaunchedEffect(screen) {
-        if (screen != Screen.Dreams) activityForAwake?.let { ScreenAwake.release(it) }
+        if (screen != Screen.Dreams && screen != Screen.Ask) activityForAwake?.let { ScreenAwake.release(it) }
     }
 
     // Ana ekranda geri tuşu hiçbir şey yapmaz; diğer ekranlarda bir adım geri gider.
@@ -212,14 +213,15 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
     ) {
         when (val current = screen) {
             // Rüya Tabirleri: hava durumu gibi, bulanıklaşan ana ekranın üstünde şeffaf cam çekmece.
-            Screen.Home, Screen.Dreams -> {
+            Screen.Home, Screen.Dreams, Screen.Ask -> {
                 HomeScreen(
                     store = store,
                     onOpenContacts = { screen = Screen.Contacts },
                     onOpenSettings = { screen = Screen.Settings },
                     onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
                     onOpenDreams = { screen = Screen.Dreams },
-                    dimmed = screen == Screen.Dreams,
+                    onOpenAsk = { screen = Screen.Ask },
+                    dimmed = screen == Screen.Dreams || screen == Screen.Ask,
                 )
                 if (screen == Screen.Dreams) {
                     androidx.compose.runtime.DisposableEffect(Unit) {
@@ -228,6 +230,16 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                     }
                     com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }) { close ->
                         DreamScreen(store = dreams, onBack = close, inSheet = true)
+                    }
+                }
+                if (screen == Screen.Ask) {
+                    androidx.compose.runtime.DisposableEffect(Unit) {
+                        MainActivity.dreamsVisible = true
+                        onDispose { MainActivity.dreamsVisible = false }
+                    }
+                    val askStore = androidx.compose.ui.platform.LocalContext.current.let { c -> remember { com.annem.launcher.DreamStore(c, historyKey = "ask_history") } }
+                    com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }) { close ->
+                        com.annem.launcher.ui.AskScreen(store = askStore, onBack = close, inSheet = true)
                     }
                 }
             }

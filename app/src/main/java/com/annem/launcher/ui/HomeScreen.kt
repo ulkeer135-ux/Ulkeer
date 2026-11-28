@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Forum
@@ -99,6 +100,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onPickApp: (slotId: String) -> Unit,
     onOpenDreams: () -> Unit = {},
+    onOpenAsk: () -> Unit = {},
     /** Üstünde Rüya Tabirleri çekmecesi açık: arka plan bulanıklaşsın. */
     dimmed: Boolean = false,
 ) {
@@ -202,7 +204,7 @@ fun HomeScreen(
             )
             Slots.visible(nine).forEachIndexed { index, id ->
                 val (bg, line, icon) = slotColors[index]
-                tiles += { m -> SlotTile(store, id, bg, line, icon, m, onPickApp, compact = nine, onOpenDreams = onOpenDreams) }
+                tiles += { m -> SlotTile(store, id, bg, line, icon, m, onPickApp, compact = nine, onOpenDreams = onOpenDreams, onOpenAsk = onOpenAsk) }
             }
             tiles.chunked(cols).forEach { row ->
                 TileRow { m -> row.forEach { tile -> tile(m) } }
@@ -231,6 +233,7 @@ fun HomeScreen(
             onDismiss = { moreOpen = false },
             onPickApp = { id -> moreOpen = false; onPickApp(id) },
             onOpenDreams = { moreOpen = false; onOpenDreams() },
+            onOpenAsk = { moreOpen = false; onOpenAsk() },
         )
     }
     lockProblem?.let { problem ->
@@ -402,6 +405,7 @@ private fun SlotTile(
     onPickApp: (String) -> Unit,
     compact: Boolean = false,
     onOpenDreams: () -> Unit = {},
+    onOpenAsk: () -> Unit = {},
     glass: Boolean = false,
 ) {
     val context = LocalContext.current
@@ -409,14 +413,14 @@ private fun SlotTile(
     if (slot != null && com.annem.launcher.InternalApps.isInternal(slot.packageName)) {
         Tile(
             label = slot.label,
-            icon = Icons.Rounded.Bedtime,
+            icon = if (slot.packageName == com.annem.launcher.InternalApps.ASK) Icons.Rounded.SmartToy else Icons.Rounded.Bedtime,
             background = background,
             line = line,
             iconTint = iconTint,
             modifier = modifier,
             compact = compact,
             glass = glass,
-        ) { onOpenDreams() }
+        ) { if (slot.packageName == com.annem.launcher.InternalApps.ASK) onOpenAsk() else onOpenDreams() }
         return
     }
     val installed = remember(slot?.packageName) {
@@ -617,6 +621,7 @@ private fun MoreSheet(
     onDismiss: () -> Unit,
     onPickApp: (String) -> Unit,
     onOpenDreams: () -> Unit,
+    onOpenAsk: () -> Unit = {},
 ) {
     BalloonSheet(onDismiss = onDismiss) { closeAnimated ->
         Column(
@@ -645,7 +650,7 @@ private fun MoreSheet(
                         val (bg, line, icon) = colors[r * 3 + c]
                         SlotTile(
                             store, id, bg, line, icon, Modifier.weight(1f).fillMaxHeight(),
-                            onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams, glass = true,
+                            onPickApp = onPickApp, compact = true, onOpenDreams = onOpenDreams, onOpenAsk = onOpenAsk, glass = true,
                         )
                     }
                 }
