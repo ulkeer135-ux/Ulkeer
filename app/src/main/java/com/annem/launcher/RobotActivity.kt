@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.annem.launcher.ui.AnnemTheme
 import com.annem.launcher.ui.AskScreen
+import com.annem.launcher.ui.BalloonSheet
 import com.annem.launcher.ui.Palette
 
 /**
@@ -55,17 +56,17 @@ class RobotActivity : ComponentActivity() {
         setContent {
             AnnemTheme {
                 var settings by remember { mutableStateOf(!store.ready) }
-                BackHandler(enabled = settings && store.ready) { settings = false }
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .background(Palette.Cream)
-                        .systemBarsPadding(),
-                ) {
+                // Telefonun ana ekranının üstünde cam çekmece: "Kapat", aşağı itme, boşluğa dokunma ve
+                // geri tuşu balon gibi toplanarak kapatır; sonra uygulama efektsiz kapanır.
+                BalloonSheet(onDismiss = {
+                    finish()
+                    @Suppress("DEPRECATION")
+                    overridePendingTransition(0, 0)
+                }) { close ->
                     if (settings) {
                         RobotSettings(store, onDone = { settings = false })
                     } else {
-                        AskScreen(store = store, onBack = { finish() }, onSettings = { settings = true })
+                        AskScreen(store = store, onBack = close, inSheet = true, onSettings = { settings = true })
                     }
                 }
             }

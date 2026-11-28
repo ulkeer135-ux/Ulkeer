@@ -33,6 +33,7 @@
         <activity
             android:name=".RobotActivity"
             android:exported="true"
+            android:theme="@style/Theme.Gokce"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
