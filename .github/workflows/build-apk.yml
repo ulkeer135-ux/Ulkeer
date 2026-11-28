@@ -26,7 +26,7 @@ jobs:
           set -o pipefail
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
           # annem-anne dalı: annenin telefonu için ayrı dosya (Daha fazla'sız).
-          if [ "$GITHUB_REF_NAME" = "annem-anne" ]; then APK=AnnemAnne.apk; elif [ "$GITHUB_REF_NAME" = "robota-sor" ]; then APK=RobotaSor.apk; else APK=Annem.apk; fi
+          if [ "$GITHUB_REF_NAME" = "annem-anne" ]; then APK=AnnemAnne.apk; elif [ "$GITHUB_REF_NAME" = "robota-sor" ]; then APK=Gokce.apk; else APK=Annem.apk; fi
           echo "APK=$APK" >> "$GITHUB_ENV"
           cp app/build/outputs/apk/release/app-release.apk "$APK"
 
