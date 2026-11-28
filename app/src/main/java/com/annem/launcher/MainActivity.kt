@@ -211,19 +211,25 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
             .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)),
     ) {
         when (val current = screen) {
-            Screen.Home -> HomeScreen(
-                store = store,
-                onOpenContacts = { screen = Screen.Contacts },
-                onOpenSettings = { screen = Screen.Settings },
-                onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
-                onOpenDreams = { screen = Screen.Dreams },
-            )
-            Screen.Dreams -> {
-                androidx.compose.runtime.DisposableEffect(Unit) {
-                    MainActivity.dreamsVisible = true
-                    onDispose { MainActivity.dreamsVisible = false }
+            // Rüya Tabirleri: hava durumu gibi, bulanıklaşan ana ekranın üstünde şeffaf cam çekmece.
+            Screen.Home, Screen.Dreams -> {
+                HomeScreen(
+                    store = store,
+                    onOpenContacts = { screen = Screen.Contacts },
+                    onOpenSettings = { screen = Screen.Settings },
+                    onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
+                    onOpenDreams = { screen = Screen.Dreams },
+                    dimmed = screen == Screen.Dreams,
+                )
+                if (screen == Screen.Dreams) {
+                    androidx.compose.runtime.DisposableEffect(Unit) {
+                        MainActivity.dreamsVisible = true
+                        onDispose { MainActivity.dreamsVisible = false }
+                    }
+                    com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }) { close ->
+                        DreamScreen(store = dreams, onBack = close, inSheet = true)
+                    }
                 }
-                DreamScreen(store = dreams, onBack = { screen = Screen.Home })
             }
             Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(

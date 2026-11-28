@@ -105,7 +105,7 @@ private sealed interface Phase {
  * Konuşma tanıma ve seslendirme telefonun kendi (Google) servisleriyle yapılır.
  */
 @Composable
-fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
+fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var phase by remember { mutableStateOf<Phase>(Phase.Idle) }
@@ -289,7 +289,12 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     val collapse = remember { androidx.compose.animation.core.Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
     val closeAnimated: () -> Unit = {
-        if (!closing) {
+        if (inSheet) {
+            // Cam çekmecede: okuma/dinleme dursun, balon efektini çekmece yapar.
+            try { tts.stop() } catch (e: Exception) { }
+            try { listener.cancel() } catch (e: Exception) { }
+            onBack()
+        } else if (!closing) {
             closing = true
             // Okuma ve dinleme hemen dursun.
             try { tts.stop() } catch (e: Exception) { }

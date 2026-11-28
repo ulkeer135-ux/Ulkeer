@@ -99,6 +99,8 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onPickApp: (slotId: String) -> Unit,
     onOpenDreams: () -> Unit = {},
+    /** Üstünde Rüya Tabirleri çekmecesi açık: arka plan bulanıklaşsın. */
+    dimmed: Boolean = false,
 ) {
     val context = LocalContext.current
     var lockProblem by remember { mutableStateOf<LockResult?>(null) }
@@ -110,7 +112,7 @@ fun HomeScreen(
     }
 
     // Çekmece açıkken arkadaki ana ekran yumuşakça bulanıklaşır (buzlu cam hissi, Android 12+).
-    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (moreOpen || weatherOpen) 16.dp else 0.dp, label = "blur")
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (moreOpen || weatherOpen || dimmed) 16.dp else 0.dp, label = "blur")
     Box(modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier)) {
     // Arka plandaki yumuşak yuvarlaklar (yalnızca süs).
     Box(
