@@ -103,6 +103,9 @@ class MainActivity : ComponentActivity() {
             val timeout = ScreenAwake.timeoutMs(this@MainActivity)
             val usable = timeout in 5_000 until 24 * 3600_000 && !ScreenAwake.stayOnWhilePlugged(this@MainActivity)
             val pm = getSystemService(android.os.PowerManager::class.java)
+            // Çekmece (Rüya, Robota Sor, hava durumu, Daha fazla) ayrı pencerededir; oradaki dokunuşlar
+            // buraya gelmez. Açıkken kullanılıyor say: kapanınca sayaç sıfırdan başlasın, ekran hemen kapanmasın.
+            if (dreamsVisible || sheetsOpen > 0) lastInteraction = android.os.SystemClock.uptimeMillis()
             val idle = android.os.SystemClock.uptimeMillis() - lastInteraction
             if (usable && !dreamsVisible && pm?.isInteractive == true && idle > timeout + 3_000) {
                 lastInteraction = android.os.SystemClock.uptimeMillis()
@@ -148,6 +151,10 @@ class MainActivity : ComponentActivity() {
         /** Rüya Tabirleri ekranı açık mı (orada ekran bilerek açık tutulur). */
         @Volatile
         var dreamsVisible = false
+
+        /** Açık cam çekmece sayısı (BalloonSheet). */
+        @Volatile
+        var sheetsOpen = 0
 
         @Volatile
         private var visible: MainActivity? = null

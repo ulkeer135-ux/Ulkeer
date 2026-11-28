@@ -26,6 +26,11 @@ internal fun BalloonSheet(
     content: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Açıkken boşta kapanma sayacı beklesin (dokunuşlar bu ayrı pencerede kalır).
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.annem.launcher.MainActivity.sheetsOpen++
+        onDispose { com.annem.launcher.MainActivity.sheetsOpen-- }
+    }
     // Elle aşağı itince de "Kapat"taki balon efekti: çekmecenin kendi kayarak kapanması engellenir,
     // yerine balon toplanması başlar.
     val closeRef = remember { arrayOf<() -> Unit>({}) }
