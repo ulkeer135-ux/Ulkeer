@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -159,7 +160,15 @@ fun ContactsScreen(store: SettingsStore, onBack: () -> Unit) {
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        BigBackButton(label = "Ana Ekran", onClick = onBack)
+        // Üstte yan yana: "Ana Ekran" ve "Kapat" (ikisi de balon efektiyle kapatır).
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TopButton(Icons.AutoMirrored.Rounded.ArrowBack, "Ana Ekran", onBack)
+            TopButton(Icons.Rounded.Close, "Kapat", onBack)
+        }
         Text(
             "Kimi arayalım?",
             fontSize = 34.sp,
@@ -743,4 +752,20 @@ private fun searchKey(text: String): String {
         )
     }
     return sb.toString()
+}
+
+@Composable
+private fun TopButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    androidx.compose.material3.OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.height(64.dp),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, Palette.Ink),
+        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Palette.Ink),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, end = 18.dp),
+    ) {
+        androidx.compose.material3.Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+        androidx.compose.foundation.layout.Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+    }
 }

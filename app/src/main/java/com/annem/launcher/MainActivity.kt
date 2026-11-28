@@ -220,7 +220,7 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
     ) {
         when (val current = screen) {
             // Rüya Tabirleri: hava durumu gibi, bulanıklaşan ana ekranın üstünde şeffaf cam çekmece.
-            Screen.Home, Screen.Dreams, Screen.Ask -> {
+            Screen.Home, Screen.Dreams, Screen.Ask, Screen.Contacts -> {
                 HomeScreen(
                     store = store,
                     onOpenContacts = { screen = Screen.Contacts },
@@ -228,7 +228,7 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                     onPickApp = { slotId -> screen = Screen.PickApp(slotId, fromHome = true) },
                     onOpenDreams = { screen = Screen.Dreams },
                     onOpenAsk = { screen = Screen.Ask },
-                    dimmed = screen == Screen.Dreams || screen == Screen.Ask,
+                    dimmed = screen == Screen.Dreams || screen == Screen.Ask || screen == Screen.Contacts,
                 )
                 if (screen == Screen.Dreams) {
                     androidx.compose.runtime.DisposableEffect(Unit) {
@@ -237,6 +237,12 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                     }
                     com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }) { close ->
                         DreamScreen(store = dreams, onBack = close, inSheet = true)
+                    }
+                }
+                // Kişiler: hava durumu ve Rüya Tabirleri gibi şeffaf cam çekmecede, balonla kapanır.
+                if (screen == Screen.Contacts) {
+                    com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }) { close ->
+                        ContactsScreen(store = store, onBack = close)
                     }
                 }
                 if (screen == Screen.Ask) {
@@ -250,7 +256,6 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                     }
                 }
             }
-            Screen.Contacts -> ContactsScreen(store = store, onBack = { screen = Screen.Home })
             Screen.Settings -> SettingsScreen(
                 store = store,
                 dreams = dreams,
