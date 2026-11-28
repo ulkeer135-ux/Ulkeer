@@ -58,7 +58,9 @@ class RobotActivity : ComponentActivity() {
                 var settings by remember { mutableStateOf(!store.ready) }
                 // Telefonun ana ekranının üstünde cam çekmece: "Kapat", aşağı itme, boşluğa dokunma ve
                 // geri tuşu balon gibi toplanarak kapatır; sonra uygulama efektsiz kapanır.
-                BalloonSheet(onDismiss = {
+                // Zemin opak: telefon başka uygulamanın arkasını bulanıklaştırmadığı için,
+                // saydam camda arkadaki yazılar karışıyordu.
+                BalloonSheet(containerColor = com.annem.launcher.ui.Palette.Cream, onDismiss = {
                     finish()
                     @Suppress("DEPRECATION")
                     overridePendingTransition(0, 0)

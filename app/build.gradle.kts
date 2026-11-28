@@ -16,8 +16,8 @@ android {
         // Not (Annem dalları): Annem.apk ve AnnemAnne.apk aynı paket adını taşır.
         // İkisi hep AYNI versionCode ile çıkarılır: böylece telefonda hangisi kuruluysa
         // diğeri üzerine kurulabilir (Android yalnızca daha düşük sürümü reddeder).
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.8"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.
