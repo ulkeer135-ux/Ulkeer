@@ -138,7 +138,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false, o
         phase = AskPhase.Thinking
         liveReading = ""
         scope.launch {
-            when (val r = com.annem.launcher.AskRobot.followUp(store.groqKey.value, base.dream, base.reading, answer)) {
+            when (val r = com.annem.launcher.AskRobot.followUp(store.groqKey.value, base.dream, base.reading, answer, context, store.history.filter { it.time != base.time })) {
                 is DreamResult.Ok -> {
                     // Eski kayıt yerine: rüya + ek bilgi + yeni yorum.
                     val entry = DreamEntry(System.currentTimeMillis(), base.dream + "\nEk bilgi: " + answer, r.text, r.by)
@@ -158,7 +158,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false, o
         phase = AskPhase.Thinking
         liveReading = ""
         scope.launch {
-            val r = com.annem.launcher.AskRobot.interpret(store.groqKey.value, dream) { text ->
+            val r = com.annem.launcher.AskRobot.interpret(store.groqKey.value, dream, context, store.history.toList()) { text ->
                 mainHandler.post { liveReading = text }
             }
             when (r) {

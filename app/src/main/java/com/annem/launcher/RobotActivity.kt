@@ -140,6 +140,54 @@ private fun RobotSettings(store: DreamStore, onDone: () -> Unit) {
             }
         }
 
+        // --- Hafıza ---
+        Spacer(Modifier.height(8.dp))
+        Text("3. Hafıza", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+        var memTick by remember { mutableStateOf(0) }
+        val memOn = remember(memTick) { RobotMemory.enabled(context) }
+        val facts = remember(memTick) { RobotMemory.facts(context) }
+        Text(
+            "Robot, bir insan gibi son konuşmalarınızı ve size dair önemli bilgileri (adınız, şehriniz, " +
+                "aileniz gibi sizin söyledikleriniz) hatırlar; yalnızca gerektiğinde kullanır. " +
+                "Bunlar cevap için Groq'a gönderilir. Şifre ve kart bilgisi hiç tutulmaz.",
+            fontSize = 17.sp, color = Palette.InkSoft, lineHeight = 24.sp,
+        )
+        Text(
+            if (memOn) "✓ Hafıza açık" else "Hafıza kapalı",
+            fontSize = 18.sp, fontWeight = FontWeight.Bold,
+            color = if (memOn) Palette.Green else Palette.InkSoft,
+        )
+        OutlinedButton(onClick = { RobotMemory.setEnabled(context, !memOn); memTick++ }) {
+            Text(if (memOn) "Hafızayı kapat" else "Hafızayı aç", fontSize = 18.sp)
+        }
+        if (facts.isNotEmpty()) {
+            Text("Hatırladıkları:", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+            facts.forEach { f ->
+                androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("• $f", fontSize = 17.sp, color = Palette.Ink, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.TextButton(onClick = { RobotMemory.removeFact(context, f); memTick++ }) {
+                        Text("Sil", fontSize = 16.sp, color = Palette.Red)
+                    }
+                }
+            }
+        }
+        var confirmForget by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { confirmForget = true }) { Text("Her şeyi unut", fontSize = 18.sp, color = Palette.Red) }
+        if (confirmForget) {
+            AlertDialog(
+                onDismissRequest = { confirmForget = false },
+                title = { Text("Robot her şeyi unutsun mu?", fontSize = 22.sp, fontWeight = FontWeight.Black) },
+                text = { Text("Hatırladığı bilgiler silinir ve önceki konuşmaları artık hatırlamaz. Geçmiş sorular listede görünmeye devam eder.", fontSize = 17.sp) },
+                confirmButton = {
+                    Button(
+                        onClick = { RobotMemory.forget(context); confirmForget = false; memTick++ },
+                        colors = ButtonDefaults.buttonColors(containerColor = Palette.Red),
+                    ) { Text("Evet, unut", fontSize = 18.sp, color = Color.White) }
+                },
+                dismissButton = { OutlinedButton(onClick = { confirmForget = false }) { Text("Vazgeç", fontSize = 18.sp) } },
+            )
+        }
+
         if (store.history.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             var confirm by remember { mutableStateOf(false) }
