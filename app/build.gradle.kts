@@ -9,14 +9,15 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.annem.launcher"
+        applicationId = "com.annem.robot"
         minSdk = 26
         targetSdk = 35
-        // Not: Annem.apk (bu dal) ve AnnemAnne.apk (annem-anne dalı) aynı paket adını taşır.
+        // Robota Sor (robota-sor dalı): Annem'den bağımsız ayrı uygulama, ayrı paket adı ve sürüm.
+        // Not (Annem dalları): Annem.apk ve AnnemAnne.apk aynı paket adını taşır.
         // İkisi hep AYNI versionCode ile çıkarılır: böylece telefonda hangisi kuruluysa
         // diğeri üzerine kurulabilir (Android yalnızca daha düşük sürümü reddeder).
-        versionCode = 106
-        versionName = "3.01"
+        versionCode = 1
+        versionName = "1.0"
     }
 
     // Sabit imza: her derleme aynı anahtarla imzalanır, böylece yeni sürüm eskisinin üzerine kurulur.
