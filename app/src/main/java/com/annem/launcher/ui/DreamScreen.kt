@@ -52,6 +52,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -282,14 +284,56 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
     val scroll = rememberScrollState()
     LaunchedEffect(phase) { scroll.scrollTo(0) }
 
+    // Kapatma: hava durumu çekmecesindeki gibi balon toplanması (1 sn), sonra ana ekran.
+    val collapse = remember { androidx.compose.animation.core.Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    val closeAnimated: () -> Unit = {
+        if (!closing) {
+            closing = true
+            // Okuma ve dinleme hemen dursun.
+            try { tts.stop() } catch (e: Exception) { }
+            try { listener.cancel() } catch (e: Exception) { }
+            scope.launch(object : androidx.compose.ui.MotionDurationScale { override val scaleFactor = 1f }) {
+                try {
+                    collapse.animateTo(
+                        1f,
+                        androidx.compose.animation.core.tween(
+                            durationMillis = 1000,
+                            easing = androidx.compose.animation.core.CubicBezierEasing(0.45f, 0f, 0.55f, 1f),
+                        ),
+                    )
+                } finally {
+                    onBack()
+                }
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .graphicsLayer {
+                val p = collapse.value
+                if (p > 0f) {
+                    // Balonun merkezi: ekranın alt ortası.
+                    val cx = size.width / 2f
+                    val cy = size.height
+                    val r = kotlin.math.hypot(cx, cy) * (1f - p)
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                    scaleX = 1f - 0.4f * p
+                    scaleY = 1f - 0.4f * p
+                    alpha = if (p < 0.7f) 1f else 1f - (p - 0.7f) / 0.3f
+                    clip = true
+                    shape = androidx.compose.foundation.shape.GenericShape { _, _ ->
+                        addOval(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset(cx, cy), r))
+                    }
+                }
+            }
             .verticalScroll(scroll)
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        BigBackButton(label = "Ana Ekran", onClick = onBack)
+        BigBackButton(label = "Ana Ekran", onClick = closeAnimated)
         Text("Rüya Tabirleri", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
 
         if (!store.ready) {
@@ -455,6 +499,20 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                 }
                 NewDreamButton { followUpFor = null; startListening() }
             }
+        }
+
+        // En altta büyük "Kapat": balon efektiyle ana ekrana döner.
+        Spacer(Modifier.height(4.dp))
+        OutlinedButton(
+            onClick = closeAnimated,
+            modifier = Modifier.fillMaxWidth().height(64.dp),
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Palette.Ink),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Palette.Ink),
+        ) {
+            Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.width(10.dp))
+            Text("Kapat", fontSize = 24.sp, fontWeight = FontWeight.Black)
         }
     }
 }
