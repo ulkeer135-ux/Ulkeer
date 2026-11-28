@@ -414,6 +414,51 @@ fun SettingsScreen(
 
         HorizontalDivider()
 
+        // --- Robota Sor hafızası ---
+        SectionTitle("Robota Sor hafızası")
+        Hint(
+            "Robota Sor, bir insan gibi son konuşmaları ve annenin kendi söylediği önemli bilgileri " +
+                "(adı, köyü, ailesi gibi) hatırlar; her soru ayrı sorulsa da bağı kendisi kurar. " +
+                "Bunlar cevap için Groq'a gönderilir; şifre ve kart bilgisi hiç tutulmaz."
+        )
+        var memTick by remember { mutableStateOf(0) }
+        val memOn = remember(memTick) { com.annem.launcher.RobotMemory.enabled(context) }
+        val memFacts = remember(memTick) { com.annem.launcher.RobotMemory.facts(context) }
+        StatusRow("Hafıza", memOn, onText = "Açık", offText = "Kapalı")
+        OutlinedButton(onClick = { com.annem.launcher.RobotMemory.setEnabled(context, !memOn); memTick++ }) {
+            Text(if (memOn) "Hafızayı kapat" else "Hafızayı aç", fontSize = 18.sp)
+        }
+        if (memFacts.isNotEmpty()) {
+            Text("Hatırladıkları:", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+            memFacts.forEach { f ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("• $f", fontSize = 17.sp, color = Palette.Ink, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.TextButton(onClick = { com.annem.launcher.RobotMemory.removeFact(context, f); memTick++ }) {
+                        Text("Sil", fontSize = 16.sp, color = Color(0xFFC62828))
+                    }
+                }
+            }
+        }
+        var confirmForget by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { confirmForget = true }) {
+            Text("Robot her şeyi unutsun", fontSize = 18.sp, color = Color(0xFFC62828))
+        }
+        if (confirmForget) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmForget = false },
+                title = { Text("Robot her şeyi unutsun mu?", fontSize = 22.sp, fontWeight = FontWeight.Black) },
+                text = { Text("Hatırladığı bilgiler silinir ve önceki konuşmaları artık hatırlamaz. Geçmiş sorular listede kalır.", fontSize = 17.sp) },
+                confirmButton = {
+                    androidx.compose.material3.Button(onClick = {
+                        com.annem.launcher.RobotMemory.forget(context); confirmForget = false; memTick++
+                    }) { Text("Evet, unut", fontSize = 18.sp) }
+                },
+                dismissButton = { OutlinedButton(onClick = { confirmForget = false }) { Text("Vazgeç", fontSize = 18.sp) } },
+            )
+        }
+
+        HorizontalDivider()
+
         // --- Arka planda kapanmasın ---
         SectionTitle("Annem arka planda kapanmasın")
         Hint(

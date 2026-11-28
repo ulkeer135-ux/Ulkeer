@@ -52,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.ui.graphics.graphicsLayer
@@ -106,7 +107,7 @@ private sealed interface AskPhase {
  * Konuşma tanıma ve seslendirme telefonun kendi (Google) servisleriyle yapılır.
  */
 @Composable
-fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
+fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false, onSettings: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var phase by remember { mutableStateOf<AskPhase>(AskPhase.Idle) }
@@ -137,7 +138,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
         phase = AskPhase.Thinking
         liveReading = ""
         scope.launch {
-            when (val r = com.annem.launcher.AskRobot.followUp(store.groqKey.value, base.dream, base.reading, answer)) {
+            when (val r = com.annem.launcher.AskRobot.followUp(store.groqKey.value, base.dream, base.reading, answer, context, store.history.filter { it.time != base.time })) {
                 is DreamResult.Ok -> {
                     // Eski kayıt yerine: rüya + ek bilgi + yeni yorum.
                     val entry = DreamEntry(System.currentTimeMillis(), base.dream + "\nEk bilgi: " + answer, r.text, r.by)
@@ -157,7 +158,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
         phase = AskPhase.Thinking
         liveReading = ""
         scope.launch {
-            val r = com.annem.launcher.AskRobot.interpret(store.groqKey.value, dream) { text ->
+            val r = com.annem.launcher.AskRobot.interpret(store.groqKey.value, dream, context, store.history.toList()) { text ->
                 mainHandler.post { liveReading = text }
             }
             when (r) {
@@ -346,13 +347,18 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopButton(Icons.AutoMirrored.Rounded.ArrowBack, "Ana Ekran", closeAnimated)
+            if (onSettings != null) {
+                TopButton(Icons.Rounded.Settings, "Ayarlar", onSettings)
+            } else {
+                TopButton(Icons.AutoMirrored.Rounded.ArrowBack, "Ana Ekran", closeAnimated)
+            }
             TopButton(Icons.Rounded.Close, "Kapat", closeAnimated)
         }
         Text("Robota Sor", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
 
         if (!store.ready) {
             InfoCard(
+                if (onSettings != null) "Robota Sor henüz kurulmadı. Üstteki \"Ayarlar\" düğmesine basıp ücretsiz Groq anahtarını girin." else
                 "Robota Sor henüz kurulmadı. Yakınınız saate 3 saniye basılı tutup Ayarlar › " +
                     "\"Rüya Tabirleri\" bölümünden ücretsiz Groq anahtarını girmeli (ikisi aynı anahtarı kullanır)."
             )
@@ -444,7 +450,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                 notice?.let { InfoCard(it) }
                 TextCard(title = "Sorunuz", text = p.entry.dream, small = true)
                 val (mainText, questions) = com.annem.launcher.AskRobot.split(p.entry.reading)
-                TextCard(title = "Yorumu", text = mainText, highlight = true)
+                TextCard(title = "Cevap", text = mainText, highlight = true)
                 if (questions.isNotEmpty()) QuestionsCard(questions)
                 if (preparing) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
