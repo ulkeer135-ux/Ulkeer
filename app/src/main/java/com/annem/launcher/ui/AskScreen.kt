@@ -52,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Keyboard
@@ -445,6 +446,26 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false, o
                     Spacer(Modifier.width(10.dp))
                     Text("Bitti, sor", fontSize = 26.sp, fontWeight = FontWeight.Black)
                 }
+                // Konuşma tanıma yanlış yazdıysa: dinlemeyi durdur, yazıyı klavyeyle düzeltip gönder.
+                if (shown.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            listener.cancel()
+                            typed = shown
+                            transcript = ""
+                            partial = ""
+                            typing = true
+                            phase = AskPhase.Idle
+                        },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(2.dp, DreamPurple),
+                    ) {
+                        Icon(Icons.Rounded.Edit, contentDescription = null, tint = DreamPurple, modifier = Modifier.size(26.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Yazıyı düzelt", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = DreamPurple)
+                    }
+                }
                 OutlinedButton(
                     onClick = {
                         listener.cancel()
@@ -645,6 +666,10 @@ private fun KeyboardButton(
 /** Klavyeyle soru yazma kartı: açılınca klavye kendiliğinden gelir. */
 @Composable
 private fun TypeCard(value: String, onValue: (String) -> Unit, label: String, onSend: () -> Unit, onCancel: () -> Unit) {
+    // İmleç, (sesle gelen) yazının sonunda başlasın.
+    var field by remember {
+        mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(value, androidx.compose.ui.text.TextRange(value.length)))
+    }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) {
@@ -659,8 +684,8 @@ private fun TypeCard(value: String, onValue: (String) -> Unit, label: String, on
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             androidx.compose.material3.OutlinedTextField(
-                value = value,
-                onValueChange = onValue,
+                value = field,
+                onValueChange = { field = it; onValue(it.text) },
                 label = { Text(label, fontSize = 18.sp) },
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 21.sp, color = Palette.Ink),
                 minLines = 3,
