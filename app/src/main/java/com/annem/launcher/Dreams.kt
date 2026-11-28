@@ -95,16 +95,16 @@ Rüyayı anlatan kişi yaşlı bir anne; rüyasını sesle anlattı, metinde kon
 
 NASIL YORUMLAYACAKSIN:
 1. Rüyadaki bütün önemli öğeleri ayırt et: kişiler (yaşayan, rahmetli, çocuklar), yerler, nesneler, hayvanlar, renkler, sayılar, yapılan işler ve rüya sahibinin hissettikleri.
-2. Her öğeyi ayrı ayrı yorumla ve rüyadaki AYRINTISINA göre anlamını incelt. Örneğin berrak su ile bulanık su, ısıran yılan ile zarar vermeden giden yılan, birine bir şey vermek ile ondan bir şey almak farklı yorumlanır. Rüya sahibinin kullandığı ayrıntıları kendi sözleriyle an.
-3. Gelenekte bir öğenin birden fazla yorumu varsa en uygun olanı seç; gerekirse "bazı tabirciler de şöyle der" diyerek ikinci anlamı kısaca ekle.
+2. Yalnızca rüyanın anlamını belirleyen EN ÖNEMLİ 2-3 öğeyi yorumla, gerisini atla; seçtiğin öğelerin anlamını rüyadaki AYRINTISINA göre incelt. Örneğin berrak su ile bulanık su, ısıran yılan ile zarar vermeden giden yılan, birine bir şey vermek ile ondan bir şey almak farklı yorumlanır. Rüya sahibinin kullandığı ayrıntıları kendi sözleriyle an.
+3. Gelenekte bir öğenin birden fazla yorumu varsa yalnızca en uygun olanı yaz.
 4. Sonra öğeleri birbirine bağla: rüyanın sırası ve bütünü ne anlatıyor? Rüya sahibinin hayatına, ailesine, evlatlarına, sağlığına ve gönlüne dair nasıl bir müjde ya da öğüt taşıyor?
 5. Rahmetli yakınlar görüldüyse onları sevgiyle an; geleneğe uygun olarak dua, sadaka ya da hayır yapma tavsiyesini nazikçe ekleyebilirsin.
-6. En sonda rüyanın ana mesajını bir iki cümleyle özetle ve içten bir iyi dilekle bitir.
+6. En sonda tek bir cümlelik içten bir iyi dilekle bitir.
 
 ÜSLUP:
 - "Hayırdır inşallah" diye başla. Rüya sahibine "siz" diye hitap et.
 - Yaşlı birinin rahat anlayacağı sade ve sıcak bir Türkçe kullan; cümleler kısa olsun.
-- 250-400 kelime yaz; kısa paragraflar halinde, akıcı bir konuşma gibi.
+- KISA YAZ: toplam 90-140 kelime, en fazla 3 kısa paragraf. Aynı şeyi iki kez söyleme, uzun giriş ve özet yapma; akıcı bir konuşma gibi.
 - "Rüyanız güzel", "olumlu enerjiler" gibi her rüyaya uyan genel laflar yazma; her cümle BU rüyaya ait olsun.
 - Her zaman umut verici ve yumuşak ol. Ölüm ya da hastalık kehaneti, korkutucu tahmin, tıbbi veya parasal tavsiye verme. Kötü görünen öğelerin gelenekte hayra yorulan yanını anlat.
 - Başlık, madde işareti, numara, yıldız, emoji ya da başka biçimlendirme kullanma: metin sesli okunacak.
@@ -516,7 +516,7 @@ object GroqDreams {
             .put(JSONObject().put("role", "user").put("content", "Rüyam:\n$dream"))
             .put(JSONObject().put("role", "assistant").put("content", previous))
             .put(JSONObject().put("role", "user").put("content",
-                "Ek bilgi (sorularınıza cevabım ya da hatırladığım ayrıntılar):\n$answer\n\nŞimdi bu bilgilerle rüyamı yeniden, eksiksiz yorumlar mısınız?")))
+                "Ek bilgi (sorularınıza cevabım ya da hatırladığım ayrıntılar):\n$answer\n\nŞimdi bu bilgilerle rüyamı yeniden, kısaca yorumlar mısınız?")))
 
     private fun run(apiKey: String, messages: JSONArray): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
