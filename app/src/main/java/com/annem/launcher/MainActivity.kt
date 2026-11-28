@@ -232,7 +232,7 @@ private fun AnnemApp(store: SettingsStore, dreams: DreamStore, homeSignal: Int) 
                 }
                 // Kişiler: hava durumu ve Rüya Tabirleri gibi şeffaf cam çekmecede, balonla kapanır.
                 if (screen == Screen.Contacts) {
-                    com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }) { close ->
+                    com.annem.launcher.ui.BalloonSheet(onDismiss = { screen = Screen.Home }, dragToClose = false) { close ->
                         ContactsScreen(store = store, onBack = close)
                     }
                 }

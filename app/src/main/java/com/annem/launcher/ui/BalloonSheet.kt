@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 internal fun BalloonSheet(
     onDismiss: () -> Unit,
     containerColor: Color = Palette.Cream.copy(alpha = 0.72f),
+    /** false: aşağı itmekle kapanmaz (yalnızca düğmeler ve geri tuşu); uzun listelerde kazara kapanmasın. */
+    dragToClose: Boolean = true,
     content: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -65,6 +67,7 @@ internal fun BalloonSheet(
         // Boşluğa dokunma / geri tuşu: çekmece hâlâ görünüyorsa yine balon efektiyle kapanır.
         onDismissRequest = { if (!closing) { if (sheetState.isVisible) closeAnimated() else onDismiss() } },
         sheetState = sheetState,
+        sheetGesturesEnabled = dragToClose,
         modifier = Modifier.graphicsLayer {
             val p = slideOut.value
             if (p > 0f) {
