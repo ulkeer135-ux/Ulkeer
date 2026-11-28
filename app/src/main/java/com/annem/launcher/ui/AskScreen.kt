@@ -450,7 +450,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false, o
                 notice?.let { InfoCard(it) }
                 TextCard(title = "Sorunuz", text = p.entry.dream, small = true)
                 val (mainText, questions) = com.annem.launcher.AskRobot.split(p.entry.reading)
-                TextCard(title = "Yorumu", text = mainText, highlight = true)
+                TextCard(title = "Cevap", text = mainText, highlight = true)
                 if (questions.isNotEmpty()) QuestionsCard(questions)
                 if (preparing) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

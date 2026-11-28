@@ -36,6 +36,9 @@ NASIL CEVAP VERECEKSİN:
 - Sağlık, ilaç ya da ilaç dozu sorulursa yalnızca genel ve güvenli bilgi ver; doz söyleme, mutlaka doktora ya da eczacıya danışmasını söyle. Acil bir durum anlatılırsa hemen 112'yi aramasını söyle.
 - Para, banka, şifre, kod isteyen mesajlar sorulursa dolandırıcılık olabileceğini, kimseye kod ve şifre vermemesini söyle.
 - Metin sesli okunacak: başlık, madde işareti, numara, yıldız, emoji, bağlantı (link), kaynak numarası ya da parantez içinde adres YAZMA. Kaynak gerekiyorsa adını söyle ("Meteoroloji'ye göre" gibi).
+- Türkçede "pazar" hem haftanın günü (Pazar) hem de alışveriş yapılan semt pazarı demektir; "pazara gideceğim", "pazardan alacağım" alışveriş pazarıdır. Hangisi olduğunu cümleden ayır, karıştırma.
+- Her soru tek başına sorulmuş olabilir. Önceki mesajlar sizin daha önceki konuşmalarınızdır (zamanlarıyla); yeni soru onlarla ilgiliyse (ör. "ne alacaktım", "o ilaç", "dün sorduğum") bağı doğal kur ve tekrar sordurma. İlgisizse önceki konuşmaları yok say, eski konuyu kendiliğinden açma, "geçen sefer sormuştunuz" diye söze başlama.
+- Kullanıcı sana bir plan ya da bilgi söylerse (ör. "pazartesi pazara gideceğim, balık alacağım") bunu not aldığını kısaca ve sıcak bir dille belirt; sonradan sorulursa hatırla.
 - Soruyu anlamadıysan kısa ve nazik bir cümleyle tekrar sormasını iste."""
     }
 
@@ -54,8 +57,9 @@ NASIL CEVAP VERECEKSİN:
             val key = groqKey.trim()
             if (key.isEmpty()) return@withContext DreamResult.Error("Robota Sor henüz kurulmadı.", false)
             val messages = JSONArray()
-                .put(JSONObject().put("role", "system").put("content", prompt() + memoryBlock(context, history)))
-                .put(JSONObject().put("role", "user").put("content", question))
+                .put(JSONObject().put("role", "system").put("content", prompt() + factsBlock(context)))
+            pastTurns(context, history).forEach { messages.put(it) }
+            messages.put(JSONObject().put("role", "user").put("content", stamp(System.currentTimeMillis()) + question))
             val r = answer(key, messages)
             if (r is DreamResult.Ok && context != null) RobotMemory.learnLater(context, key, question, r.text)
             r
@@ -74,45 +78,50 @@ NASIL CEVAP VERECEKSİN:
             val key = groqKey.trim()
             if (key.isEmpty()) return@withContext DreamResult.Error("Robota Sor henüz kurulmadı.", false)
             val messages = JSONArray()
-                .put(JSONObject().put("role", "system").put("content", prompt() + memoryBlock(context, history)))
+                .put(JSONObject().put("role", "system").put("content", prompt() + factsBlock(context)))
+            pastTurns(context, history).forEach { messages.put(it) }
+            messages
                 .put(JSONObject().put("role", "user").put("content", question))
                 .put(JSONObject().put("role", "assistant").put("content", previous))
-                .put(JSONObject().put("role", "user").put("content", more))
+                .put(JSONObject().put("role", "user").put("content", stamp(System.currentTimeMillis()) + more))
             val r = answer(key, messages)
             if (r is DreamResult.Ok && context != null) RobotMemory.learnLater(context, key, "$question\n$more", r.text)
             r
         }
 
-    /**
-     * Hafıza: kullanıcı hakkında bildiklerimiz + son konuşmaların kısa hali.
-     * Modele yalnızca GEREKİRSE kullanması söylenir; eski konuyu kendiliğinden açmaz.
-     */
-    private fun memoryBlock(context: Context?, history: List<DreamEntry>): String {
+    private val stampFmt = SimpleDateFormat("d MMMM EEEE HH:mm", Locale("tr"))
+
+    /** Mesajın başına zaman: "dün", "yarın", "pazartesi" doğru anlaşılsın. */
+    private fun stamp(t: Long) = "[" + stampFmt.format(Date(t)) + "] "
+
+    /** Kalıcı bilgiler (isim, şehir, aile...): sistem mesajına kısa not. */
+    private fun factsBlock(context: Context?): String {
         if (context == null || !RobotMemory.enabled(context)) return ""
         val facts = RobotMemory.facts(context)
-        val since = RobotMemory.since(context)
-        val fmt = SimpleDateFormat("d MMMM EEEE HH:mm", Locale("tr"))
-        val recent = history.filter { it.time > since }.take(6).reversed()
-        if (facts.isEmpty() && recent.isEmpty()) return ""
-        val sb = StringBuilder("\n\nHAFIZA (bir insan gibi hatırlaman için; kullanıcıya hafızadan söz etme):")
-        if (facts.isNotEmpty()) {
-            sb.append("\nKullanıcı hakkında bildiklerin:")
-            facts.forEach { sb.append("\n- ").append(it) }
-        }
-        if (recent.isNotEmpty()) {
-            sb.append("\nSon konuşmalarınız (eskiden yeniye):")
-            recent.forEach { e ->
-                sb.append("\n[").append(fmt.format(Date(e.time))).append("] Soru: ").append(e.dream.take(200).replace('\n', ' '))
-                sb.append(" | Senin cevabın (kısaca): ").append(e.reading.take(220).replace('\n', ' '))
-            }
-        }
-        sb.append(
-            "\nHafızayı nasıl kullanacaksın: Yeni soru önceki bir konuyla gerçekten ilgiliyse (aynı kişi, aynı sorun, " +
-                "\"o\", \"dün sorduğum\" gibi) bağı doğal bir şekilde kur ve tekrar anlattırma. Şehir, aile, yaş gibi bilgileri " +
-                "gerektiğinde kendiliğinden kullan (ör. hava sorusunda şehrini). İlgisiz eski konuları AÇMA, \"geçen sefer şunu " +
-                "sormuştunuz\" diye söze başlama, hafızadan ya da bu notlardan söz etme. Notlarla yeni söylenen çelişirse yeni söyleneni esas al."
-        )
+        if (facts.isEmpty()) return ""
+        val sb = StringBuilder("\n\nKULLANICI HAKKINDA BİLDİKLERİN (kendisi söyledi; gerektiğinde doğal kullan, bu listeden söz etme):")
+        facts.forEach { sb.append("\n- ").append(it) }
         return sb.toString()
+    }
+
+    /**
+     * Son konuşmalar, gerçek bir sohbetin önceki mesajları gibi (eskiden yeniye, zamanlı).
+     * Böylece her yeni soru ayrı bir "balon" olsa da robot öncekileri bir insan gibi hatırlar.
+     */
+    private fun pastTurns(context: Context?, history: List<DreamEntry>): List<JSONObject> {
+        if (context == null || !RobotMemory.enabled(context)) return emptyList()
+        val since = RobotMemory.since(context)
+        val cutoff = System.currentTimeMillis() - 14L * 24 * 3600_000L
+        return history
+            .filter { it.time > since && it.time > cutoff }
+            .take(8)
+            .reversed()
+            .flatMap { e ->
+                listOf(
+                    JSONObject().put("role", "user").put("content", stamp(e.time) + e.dream.take(600)),
+                    JSONObject().put("role", "assistant").put("content", e.reading.take(700)),
+                )
+            }
     }
 
     private fun answer(key: String, messages: JSONArray): DreamResult {
