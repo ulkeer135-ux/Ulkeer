@@ -354,11 +354,11 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false, o
             }
             TopButton(Icons.Rounded.Close, "Kapat", closeAnimated)
         }
-        Text("Robota Sor", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+        Text("Gökçe", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
 
         if (!store.ready) {
             InfoCard(
-                if (onSettings != null) "Robota Sor henüz kurulmadı. Üstteki \"Ayarlar\" düğmesine basıp ücretsiz Groq anahtarını girin." else
+                if (onSettings != null) "Gökçe henüz kurulmadı. Üstteki \"Ayarlar\" düğmesine basıp ücretsiz Groq anahtarını girin." else
                 "Robota Sor henüz kurulmadı. Yakınınız saate 3 saniye basılı tutup Ayarlar › " +
                     "\"Rüya Tabirleri\" bölümünden ücretsiz Groq anahtarını girmeli (ikisi aynı anahtarı kullanır)."
             )

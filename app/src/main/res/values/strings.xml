@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Robota Sor</string>
+    <string name="app_name">Gökçe</string>
     <string name="lock_service_label">Annem – Ekranı kapat</string>
     <string name="lock_service_description">Annem ana ekranındaki büyük \"Ekranı Kapat\" düğmesinin telefonu kilitlemesini sağlar (güç tuşuna basmak gibi) ve ana ekran tuşunda Annem\'in beklemeden açılmasını sağlar. Yalnızca ana ekran tuşunu karşılar; diğer tuşlara ve ekrandaki içeriklere dokunmaz.</string>
     <string name="admin_label">Annem – Ekranı kapat</string>

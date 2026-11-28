@@ -89,7 +89,7 @@ private fun RobotSettings(store: DreamStore, onDone: () -> Unit) {
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Robota Sor · Ayarlar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
+        Text("Gökçe · Ayarlar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
 
         Text("1. Groq anahtarı (gerekli, ücretsiz)", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
         Text(
@@ -112,7 +112,7 @@ private fun RobotSettings(store: DreamStore, onDone: () -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = Palette.Ink),
         ) { Text("Kaydet", fontSize = 18.sp, color = Color.White) }
         Text(
-            if (store.ready) "✓ Anahtar kayıtlı, Robota Sor hazır." else "Anahtar henüz girilmedi.",
+            if (store.ready) "✓ Anahtar kayıtlı, Gökçe hazır." else "Anahtar henüz girilmedi.",
             fontSize = 18.sp, fontWeight = FontWeight.Bold,
             color = if (store.ready) Palette.Green else Palette.Red,
         )

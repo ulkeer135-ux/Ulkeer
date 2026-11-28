@@ -24,7 +24,7 @@ object AskRobot {
 
     private fun prompt(): String {
         val today = SimpleDateFormat("d MMMM yyyy EEEE", Locale("tr")).format(Date())
-        return """Sen yaşlı bir anneye yardım eden sabırlı, sıcak ve bilgili bir yardımcısın. Bugün $today.
+        return """Senin adın Gökçe. Sabırlı, sıcak, neşeli ve bilgili bir yardımcısın; adın sorulursa "Ben Gökçe" de. Bugün $today.
 Soruyu anne sesle sordu; metinde konuşma hataları olabilir, ne kastettiğini tahmin et.
 
 NASIL CEVAP VERECEKSİN:
@@ -55,7 +55,7 @@ NASIL CEVAP VERECEKSİN:
     ): DreamResult =
         withContext(Dispatchers.IO) {
             val key = groqKey.trim()
-            if (key.isEmpty()) return@withContext DreamResult.Error("Robota Sor henüz kurulmadı.", false)
+            if (key.isEmpty()) return@withContext DreamResult.Error("Gökçe henüz kurulmadı.", false)
             val messages = JSONArray()
                 .put(JSONObject().put("role", "system").put("content", prompt() + factsBlock(context)))
             pastTurns(context, history).forEach { messages.put(it) }
@@ -76,7 +76,7 @@ NASIL CEVAP VERECEKSİN:
     ): DreamResult =
         withContext(Dispatchers.IO) {
             val key = groqKey.trim()
-            if (key.isEmpty()) return@withContext DreamResult.Error("Robota Sor henüz kurulmadı.", false)
+            if (key.isEmpty()) return@withContext DreamResult.Error("Gökçe henüz kurulmadı.", false)
             val messages = JSONArray()
                 .put(JSONObject().put("role", "system").put("content", prompt() + factsBlock(context)))
             pastTurns(context, history).forEach { messages.put(it) }
