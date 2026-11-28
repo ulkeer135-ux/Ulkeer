@@ -52,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.LaunchedEffect
@@ -333,7 +334,15 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        BigBackButton(label = "Ana Ekran", onClick = closeAnimated)
+        // Üstte yan yana: "Ana Ekran" ve "Kapat" (ikisi de balon efektiyle ana ekrana döner).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TopButton(Icons.AutoMirrored.Rounded.ArrowBack, "Ana Ekran", closeAnimated)
+            TopButton(Icons.Rounded.Close, "Kapat", closeAnimated)
+        }
         Text("Rüya Tabirleri", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Palette.Ink)
 
         if (!store.ready) {
@@ -500,20 +509,22 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit) {
                 NewDreamButton { followUpFor = null; startListening() }
             }
         }
+    }
+}
 
-        // En altta büyük "Kapat": balon efektiyle ana ekrana döner.
-        Spacer(Modifier.height(4.dp))
-        OutlinedButton(
-            onClick = closeAnimated,
-            modifier = Modifier.fillMaxWidth().height(64.dp),
-            shape = RoundedCornerShape(20.dp),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Palette.Ink),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Palette.Ink),
-        ) {
-            Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(30.dp))
-            Spacer(Modifier.width(10.dp))
-            Text("Kapat", fontSize = 24.sp, fontWeight = FontWeight.Black)
-        }
+@Composable
+private fun TopButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.height(64.dp),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, Palette.Ink),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Palette.Ink),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, end = 18.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
     }
 }
 
