@@ -91,13 +91,13 @@ private val DreamPurpleSoft = Color(0xFFE0EEF9)
 private val DreamPurpleLine = Color(0xFFC5DDF2)
 private val TR_LOCALE: Locale = Locale.forLanguageTag("tr-TR")
 
-private sealed interface Phase {
-    data object Idle : Phase
-    data object Listening : Phase
-    data object Finishing : Phase
-    data object Thinking : Phase
-    data class Answer(val entry: DreamEntry) : Phase
-    data class Failed(val dream: String, val message: String, val retryable: Boolean, val detail: String = "") : Phase
+private sealed interface AskPhase {
+    data object Idle : AskPhase
+    data object Listening : AskPhase
+    data object Finishing : AskPhase
+    data object Thinking : AskPhase
+    data class Answer(val entry: DreamEntry) : AskPhase
+    data class Failed(val dream: String, val message: String, val retryable: Boolean, val detail: String = "") : AskPhase
 }
 
 /**
@@ -109,7 +109,7 @@ private sealed interface Phase {
 fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var phase by remember { mutableStateOf<Phase>(Phase.Idle) }
+    var phase by remember { mutableStateOf<AskPhase>(AskPhase.Idle) }
     var transcript by remember { mutableStateOf("") }
     var partial by remember { mutableStateOf("") }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -134,7 +134,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
 
     fun answerQuestions(answer: String) {
         val base = followUpFor ?: return
-        phase = Phase.Thinking
+        phase = AskPhase.Thinking
         liveReading = ""
         scope.launch {
             when (val r = com.annem.launcher.AskRobot.followUp(store.groqKey.value, base.dream, base.reading, answer)) {
@@ -144,17 +144,17 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                     store.remove(base)
                     store.add(entry)
                     followUpFor = null
-                    phase = Phase.Answer(entry)
+                    phase = AskPhase.Answer(entry)
                     tts.speak(com.annem.launcher.AskRobot.speech(r.text), entry.time)
                 }
-                is DreamResult.Error -> phase = Phase.Failed(answer, r.message, r.retryable, r.detail)
+                is DreamResult.Error -> phase = AskPhase.Failed(answer, r.message, r.retryable, r.detail)
             }
         }
     }
 
     fun interpret(dream: String) {
         if (followUpFor != null) { answerQuestions(dream); return }
-        phase = Phase.Thinking
+        phase = AskPhase.Thinking
         liveReading = ""
         scope.launch {
             val r = com.annem.launcher.AskRobot.interpret(store.groqKey.value, dream) { text ->
@@ -164,17 +164,17 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                 is DreamResult.Ok -> {
                     val entry = DreamEntry(System.currentTimeMillis(), dream, r.text, r.by)
                     store.add(entry)
-                    phase = Phase.Answer(entry)
+                    phase = AskPhase.Answer(entry)
                     tts.speak(com.annem.launcher.AskRobot.speech(r.text), entry.time)
                 }
-                is DreamResult.Error -> phase = Phase.Failed(dream, r.message, r.retryable, r.detail)
+                is DreamResult.Error -> phase = AskPhase.Failed(dream, r.message, r.retryable, r.detail)
             }
         }
     }
 
     // --- Konuşma tanıma: anne "Bitti" diyene kadar dinlemeye devam eder ---
     val listener = remember {
-        DreamListener(
+        AskListener(
             context = context,
             onPartial = { partial = it },
             onFinal = { text ->
@@ -184,13 +184,13 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
             onReady = { micReady = it },
             onStopped = { reason ->
                 partial = ""
-                if (phase == Phase.Finishing || phase == Phase.Listening) {
+                if (phase == AskPhase.Finishing || phase == AskPhase.Listening) {
                     if (transcript.isNotBlank()) {
                         interpret(transcript)
                     } else {
                         val back = followUpFor
                         followUpFor = null
-                        phase = if (back != null) Phase.Answer(back) else Phase.Idle
+                        phase = if (back != null) AskPhase.Answer(back) else AskPhase.Idle
                         notice = reason ?: "Sesinizi duyamadım. Düğmeye basıp tekrar sorun."
                     }
                 }
@@ -204,12 +204,12 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
             transcript = text
             interpret(text)
         } else {
-            phase = Phase.Idle
+            phase = AskPhase.Idle
         }
     }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) {
-            phase = Phase.Listening
+            phase = AskPhase.Listening
             listener.start(delayMs = 300L)
         } else {
             notice = "Sorunuzu dinleyebilmem için mikrofon izni gerekiyor."
@@ -239,8 +239,8 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
             return
         }
         // Az önce yorum okunduysa hoparlör sussun, sonra mikrofon açılsın (çakışmasın).
-        val wait = if (speaking || preparing || phase is Phase.Answer) 600L else 200L
-        phase = Phase.Listening
+        val wait = if (speaking || preparing || phase is AskPhase.Answer) 600L else 200L
+        phase = AskPhase.Listening
         listener.start(delayMs = wait)
     }
 
@@ -248,13 +248,13 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
     // bittikten sonra 3 dakika (rahatça okusun). Boş beklerken telefonun normal ayarı geçerli.
     var readingGrace by remember { mutableStateOf(false) }
     LaunchedEffect(phase, speaking, preparing) {
-        readingGrace = phase is Phase.Answer
-        if (phase is Phase.Answer && !speaking && !preparing) {
+        readingGrace = phase is AskPhase.Answer
+        if (phase is AskPhase.Answer && !speaking && !preparing) {
             delay(3 * 60_000L)
             readingGrace = false
         }
     }
-    val keepOn = phase == Phase.Listening || phase == Phase.Finishing || phase == Phase.Thinking ||
+    val keepOn = phase == AskPhase.Listening || phase == AskPhase.Finishing || phase == AskPhase.Thinking ||
         speaking || preparing || readingGrace
     val view = LocalView.current
     DisposableEffect(keepOn) {
@@ -268,9 +268,9 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
         val obs = LifecycleEventObserver { _, e ->
             if (e == Lifecycle.Event.ON_STOP) {
                 tts.stop()
-                if (phase == Phase.Listening) {
+                if (phase == AskPhase.Listening) {
                     listener.cancel()
-                    phase = Phase.Idle
+                    phase = AskPhase.Idle
                 }
             }
         }
@@ -360,7 +360,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
         }
 
         when (val p = phase) {
-            Phase.Idle -> {
+            AskPhase.Idle -> {
                 Text(
                     "Mavi düğmeye basın ve sorunuzu sorun. Bitince \"Bitti\" düğmesine basın.",
                     fontSize = 20.sp,
@@ -371,18 +371,18 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                 }
                 notice?.let { InfoCard(it) }
                 DreamHistory(store, onOpen = { entry ->
-                    phase = Phase.Answer(entry)
+                    phase = AskPhase.Answer(entry)
                     tts.speak(com.annem.launcher.AskRobot.speech(entry.reading), entry.time)
                 })
             }
 
-            Phase.Listening, Phase.Finishing -> {
+            AskPhase.Listening, AskPhase.Finishing -> {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    BigMicButton(listening = p == Phase.Listening) { }
+                    BigMicButton(listening = p == AskPhase.Listening) { }
                 }
                 Text(
                     when {
-                        p != Phase.Listening -> "Bir saniye…"
+                        p != AskPhase.Listening -> "Bir saniye…"
                         micReady -> "Dinliyorum… Sorunuzu sorun."
                         else -> "Mikrofon açılıyor…"
                     },
@@ -401,10 +401,10 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                 if (shown.isNotEmpty()) TextCard(title = if (followUpFor != null) "Eklediğiniz" else "Söyledikleriniz", text = shown)
                 Button(
                     onClick = {
-                        phase = Phase.Finishing
+                        phase = AskPhase.Finishing
                         listener.finish()
                     },
-                    enabled = p == Phase.Listening,
+                    enabled = p == AskPhase.Listening,
                     modifier = Modifier.fillMaxWidth().height(72.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Palette.Green, contentColor = Color.White),
@@ -419,14 +419,14 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                         transcript = ""
                         val back = followUpFor
                         followUpFor = null
-                        phase = if (back != null) Phase.Answer(back) else Phase.Idle
+                        phase = if (back != null) AskPhase.Answer(back) else AskPhase.Idle
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(18.dp),
                 ) { Text("Vazgeç", fontSize = 20.sp, color = Palette.Ink) }
             }
 
-            Phase.Thinking -> {
+            AskPhase.Thinking -> {
                 TextCard(title = if (followUpFor != null) "Eklediğiniz" else "Sorunuz", text = transcript, small = true)
                 if (liveReading.isNotBlank()) TextCard(title = "Cevap yazılıyor…", text = liveReading, highlight = true)
                 if (liveReading.isBlank()) Row(
@@ -440,7 +440,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                 }
             }
 
-            is Phase.Answer -> {
+            is AskPhase.Answer -> {
                 notice?.let { InfoCard(it) }
                 TextCard(title = "Sorunuz", text = p.entry.dream, small = true)
                 val (mainText, questions) = com.annem.launcher.AskRobot.split(p.entry.reading)
@@ -494,7 +494,7 @@ fun AskScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false) {
                 )
             }
 
-            is Phase.Failed -> {
+            is AskPhase.Failed -> {
                 if (p.dream.isNotBlank()) TextCard(title = "Sorunuz", text = p.dream, small = true)
                 InfoCard(p.message)
                 if (p.detail.isNotBlank()) {
@@ -672,7 +672,7 @@ private fun DreamHistory(store: DreamStore, onOpen: (DreamEntry) -> Unit) {
  * gelen geç hata haberleri yenisini bozmasın. Geçici hatalarda (meşgul, ses, bağlantı kopması)
  * kısa bekleyip birkaç kez yeniden denenir; ekran dinleme modundan hemen çıkmaz.
  */
-private class DreamListener(
+private class AskListener(
     context: Context,
     private val onPartial: (String) -> Unit,
     private val onFinal: (String) -> Unit,
