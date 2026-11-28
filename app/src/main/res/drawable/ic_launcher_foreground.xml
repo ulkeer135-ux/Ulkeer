@@ -1,24 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Robota Sor: sevimli robot başı. 108dp tuval, ortadaki 66dp güvenli alanda. -->
+<!-- Gökçe Bilir: gülümseyen, al yanaklı küçük bulut ve yıldız. 108dp tuval, ortadaki 66dp güvenli alanda. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- anten -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="4"
-        android:strokeLineCap="round" android:pathData="M54,30 L54,38" />
-    <path android:fillColor="#FFD34D" android:pathData="M54,25 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0" />
-    <!-- kafa -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="1.12" android:scaleY="1.12" android:translateY="1">
+    <!-- bulutun yumuşak gölgesi -->
+    <path android:fillColor="#1F3A4F8C"
+        android:pathData="M39,77 L71,77 A11,11 0 0,0 82,66 A10,10 0 0,0 72,56.5 A15,15 0 0,0 43,52.5 A11,11 0 0,0 30,64 A11,11 0 0,0 39,77 Z" />
+    <!-- bulut -->
     <path android:fillColor="#FFFFFF"
-        android:pathData="M38,38 L70,38 Q78,38 78,46 L78,66 Q78,74 70,74 L38,74 Q30,74 30,66 L30,46 Q30,38 38,38 Z" />
-    <!-- kulaklar -->
-    <path android:fillColor="#FFFFFF" android:pathData="M24,50 L30,50 L30,62 L24,62 Q22,62 22,60 L22,52 Q22,50 24,50 Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M78,50 L84,50 Q86,50 86,52 L86,60 Q86,62 84,62 L78,62 Z" />
-    <!-- gözler -->
-    <path android:fillColor="#1F6FA8" android:pathData="M44,53 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
-    <path android:fillColor="#1F6FA8" android:pathData="M64,53 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+        android:pathData="M39,74 L71,74 A11,11 0 0,0 82,63 A10,10 0 0,0 72,53.5 A15,15 0 0,0 43,49.5 A11,11 0 0,0 30,61 A11,11 0 0,0 39,74 Z" />
+    <!-- kapalı, mutlu gözler -->
+    <path android:fillColor="#00000000" android:strokeColor="#4A5A86" android:strokeWidth="2.6"
+        android:strokeLineCap="round" android:pathData="M44,61 Q47,57.8 50,61" />
+    <path android:fillColor="#00000000" android:strokeColor="#4A5A86" android:strokeWidth="2.6"
+        android:strokeLineCap="round" android:pathData="M58,61 Q61,57.8 64,61" />
     <!-- gülümseme -->
-    <path android:fillColor="#00000000" android:strokeColor="#1F6FA8" android:strokeWidth="3.5"
-        android:strokeLineCap="round" android:pathData="M45,64 Q54,70 63,64" />
+    <path android:fillColor="#00000000" android:strokeColor="#4A5A86" android:strokeWidth="2.4"
+        android:strokeLineCap="round" android:pathData="M50.5,65.5 Q54,69 57.5,65.5" />
+    <!-- al yanaklar -->
+    <path android:fillColor="#FFB3C4" android:pathData="M40,65.5 m-2.8,0 a2.8,2.8 0 1,0 5.6,0 a2.8,2.8 0 1,0 -5.6,0" />
+    <path android:fillColor="#FFB3C4" android:pathData="M68,65.5 m-2.8,0 a2.8,2.8 0 1,0 5.6,0 a2.8,2.8 0 1,0 -5.6,0" />
+    <!-- küçük altın yıldız -->
+    <path android:fillColor="#FFD15C" android:strokeColor="#FFFFFF" android:strokeWidth="1.2" android:strokeLineJoin="round"
+        android:pathData="M74.00,24.80 L75.82,29.49 L80.85,29.78 L76.95,32.96 L78.23,37.82 L74.00,35.10 L69.77,37.82 L71.05,32.96 L67.15,29.78 L72.18,29.49 Z" />
+    <!-- parıltı -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M34,32 Q34.6,35.4 38,36 Q34.6,36.6 34,40 Q33.4,36.6 30,36 Q33.4,35.4 34,32 Z" />
+    <path android:fillColor="#CCFFFFFF"
+        android:pathData="M83,44 Q83.4,46.1 85.5,46.5 Q83.4,46.9 83,49 Q82.6,46.9 80.5,46.5 Q82.6,46.1 83,44 Z" />
+    </group>
 </vector>
