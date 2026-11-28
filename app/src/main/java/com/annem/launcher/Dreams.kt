@@ -16,8 +16,10 @@ import java.net.URL
 object InternalApps {
     const val DREAMS = "annem.internal.dreams"
     const val DREAMS_LABEL = "Rüya Tabirleri"
+    const val ASK = "annem.internal.ask"
+    const val ASK_LABEL = "Robota Sor"
 
-    fun isInternal(packageName: String?) = packageName == DREAMS
+    fun isInternal(packageName: String?) = packageName == DREAMS || packageName == ASK
 }
 
 /** Bir rüya ve yorumu (geçmişte saklanır). */
@@ -269,7 +271,7 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
 }
 
 /** Ayarlar'daki Gemini anahtarı ve son 10 rüya. */
-class DreamStore(context: Context) {
+class DreamStore(context: Context, private val historyKey: String = "history") {
     private val app = context.applicationContext
     private val prefs = app.getSharedPreferences("annem_dreams", Context.MODE_PRIVATE)
 
@@ -330,11 +332,11 @@ class DreamStore(context: Context) {
     private fun save() {
         val arr = JSONArray()
         history.forEach { arr.put(JSONObject().put("t", it.time).put("d", it.dream).put("y", it.reading).put("b", it.by)) }
-        prefs.edit().putString("history", arr.toString()).apply()
+        prefs.edit().putString(historyKey, arr.toString()).apply()
     }
 
     private fun loadHistory(): List<DreamEntry> = try {
-        val arr = JSONArray(prefs.getString("history", "[]"))
+        val arr = JSONArray(prefs.getString(historyKey, "[]"))
         (0 until arr.length()).mapNotNull { i ->
             arr.optJSONObject(i)?.let { DreamEntry(it.optLong("t"), it.optString("d"), it.optString("y"), it.optString("b")) }
         }
@@ -517,6 +519,9 @@ object GroqDreams {
             .put(JSONObject().put("role", "assistant").put("content", previous))
             .put(JSONObject().put("role", "user").put("content",
                 "Ek bilgi (sorularınıza cevabım ya da hatırladığım ayrıntılar):\n$answer\n\nŞimdi bu bilgilerle rüyamı yeniden, kısaca yorumlar mısınız?")))
+
+    /** Robota Sor'un internetsiz yedeği: aynı modellerle serbest mesajlar. */
+    fun runMessages(apiKey: String, messages: JSONArray): DreamResult = run(apiKey, messages)
 
     private fun run(apiKey: String, messages: JSONArray): DreamResult {
         var last: DreamResult = DreamResult.Error("Yorum servisi şu an yanıt vermiyor. Biraz sonra tekrar deneyin.", true)
