@@ -60,7 +60,11 @@ class RobotActivity : ComponentActivity() {
                 // geri tuşu balon gibi toplanarak kapatır; sonra uygulama efektsiz kapanır.
                 // Zemin opak: telefon başka uygulamanın arkasını bulanıklaştırmadığı için,
                 // saydam camda arkadaki yazılar karışıyordu.
-                BalloonSheet(containerColor = com.annem.launcher.ui.Palette.Cream, onDismiss = {
+                BalloonSheet(
+                    containerColor = com.annem.launcher.ui.Palette.Cream,
+                    // Arkadaki uygulama koyulaşsın: Gökçe Bilir onunla karışmasın, öne çıksın.
+                    scrimColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                    onDismiss = {
                     finish()
                     @Suppress("DEPRECATION")
                     overridePendingTransition(0, 0)

@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 internal fun BalloonSheet(
     onDismiss: () -> Unit,
     containerColor: Color = Palette.Cream.copy(alpha = 0.72f),
+    /** Arkadaki ekranın karartılması (ayrı uygulamada arka planla karışmasın diye koyu). */
+    scrimColor: Color = Color.Black.copy(alpha = 0.12f),
     content: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -80,7 +82,7 @@ internal fun BalloonSheet(
             }
         },
         containerColor = containerColor,
-        scrimColor = Color.Black.copy(alpha = 0.12f),
+        scrimColor = scrimColor,
         tonalElevation = 0.dp,
     ) {
         content(closeAnimated)
