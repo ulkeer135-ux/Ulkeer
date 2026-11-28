@@ -412,6 +412,50 @@ fun SettingsScreen(
             }
         }
 
+        // --- Rüya hafızası ---
+        Spacer(Modifier.height(8.dp))
+        Text("Rüya hafızası", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+        Hint(
+            "Rüyalarda geçen kişileri (oğlu, gelini, rahmetli yakınları gibi annenin kendi söylediklerini) hatırlar; " +
+                "rüyada biri geçince kim olduğunu bilir. Aynı rüya tekrar gelirse kısaca ve hayra yorarak anar; " +
+                "her rüya yine kendi başına yorumlanır."
+        )
+        var dmTick by remember { mutableStateOf(0) }
+        val dmOn = remember(dmTick) { com.annem.launcher.DreamMemory.enabled(context) }
+        val dmFacts = remember(dmTick) { com.annem.launcher.DreamMemory.facts(context) }
+        StatusRow("Rüya hafızası", dmOn, onText = "Açık", offText = "Kapalı")
+        OutlinedButton(onClick = { com.annem.launcher.DreamMemory.setEnabled(context, !dmOn); dmTick++ }) {
+            Text(if (dmOn) "Rüya hafızasını kapat" else "Rüya hafızasını aç", fontSize = 18.sp)
+        }
+        if (dmFacts.isNotEmpty()) {
+            Text("Hatırladıkları:", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Palette.Ink)
+            dmFacts.forEach { f ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("• $f", fontSize = 17.sp, color = Palette.Ink, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.TextButton(onClick = { com.annem.launcher.DreamMemory.removeFact(context, f); dmTick++ }) {
+                        Text("Sil", fontSize = 16.sp, color = Color(0xFFC62828))
+                    }
+                }
+            }
+        }
+        var dmConfirm by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { dmConfirm = true }) {
+            Text("Rüya hafızasını sıfırla", fontSize = 18.sp, color = Color(0xFFC62828))
+        }
+        if (dmConfirm) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { dmConfirm = false },
+                title = { Text("Rüya hafızası sıfırlansın mı?", fontSize = 22.sp, fontWeight = FontWeight.Black) },
+                text = { Text("Hatırladığı kişiler silinir ve eski rüyaları artık karşılaştırmaz. Geçmiş rüyalar listede kalır.", fontSize = 17.sp) },
+                confirmButton = {
+                    androidx.compose.material3.Button(onClick = {
+                        com.annem.launcher.DreamMemory.forget(context); dmConfirm = false; dmTick++
+                    }) { Text("Evet, sıfırla", fontSize = 18.sp) }
+                },
+                dismissButton = { OutlinedButton(onClick = { dmConfirm = false }) { Text("Vazgeç", fontSize = 18.sp) } },
+            )
+        }
+
         HorizontalDivider()
 
         // --- Robota Sor hafızası ---
