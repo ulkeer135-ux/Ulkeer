@@ -129,12 +129,17 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
         claudeKey: String,
         groqKey: String,
         dream: String,
+        context: Context? = null,
+        history: List<DreamEntry> = emptyList(),
         onPartial: (String) -> Unit = {},
     ): DreamResult = withContext(Dispatchers.IO) {
+        // Hafıza: kişiler ve (yalnızca çok benzerse) eski rüyalar.
+        val prompt = PROMPT + DreamMemory.block(context, history)
         // Yorumu yalnızca Groq yapar (hızlı, ücretsiz). Gemini anahtarı artık yalnızca doğal ses için.
         val services = buildList<suspend () -> DreamResult> {
-            if (groqKey.isNotBlank()) add { GroqDreams.interpret(groqKey.trim(), PROMPT, dream) }
+            if (groqKey.isNotBlank()) add { GroqDreams.interpret(groqKey.trim(), prompt, dream) }
         }
+        if (context != null && groqKey.isNotBlank()) DreamMemory.learnLater(context, groqKey, dream)
         if (services.isEmpty()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da Groq anahtarı girilmeli.", false)
         trace.clear()
         var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
@@ -153,14 +158,23 @@ Yorum: "Hayırdır inşallah. Rüyada yılan görmek tabir kitaplarında çoğu 
     }
 
     /** Soruları yanıtla: önceki yorumla birleştirip yeniden yorumlat (Groq). */
-    suspend fun followUp(groqKey: String, dream: String, previous: String, answer: String): DreamResult =
+    suspend fun followUp(
+        groqKey: String,
+        dream: String,
+        previous: String,
+        answer: String,
+        context: Context? = null,
+        history: List<DreamEntry> = emptyList(),
+    ): DreamResult =
         withContext(Dispatchers.IO) {
+            val prompt = PROMPT + DreamMemory.block(context, history)
+            if (context != null && groqKey.isNotBlank()) DreamMemory.learnLater(context, groqKey, "$dream\nEk bilgi: $answer")
             if (groqKey.isBlank()) return@withContext DreamResult.Error("Rüya yorumu için Ayarlar'da Groq anahtarı girilmeli.", false)
             trace.clear()
             var last: DreamResult = DreamResult.Error("Yorum alınamadı. Biraz sonra tekrar deneyin.", true)
             for (wait in listOf(0L, 4_000L)) {
                 if (wait > 0) delay(wait)
-                last = GroqDreams.followUp(groqKey.trim(), PROMPT, dream, previous, answer)
+                last = GroqDreams.followUp(groqKey.trim(), prompt, dream, previous, answer)
                 if (last is DreamResult.Ok) return@withContext last
                 val err = last as DreamResult.Error
                 if (!err.retryable || err.quota) break

@@ -136,7 +136,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
         phase = Phase.Thinking
         liveReading = ""
         scope.launch {
-            when (val r = DreamInterpreter.followUp(store.groqKey.value, base.dream, base.reading, answer)) {
+            when (val r = DreamInterpreter.followUp(store.groqKey.value, base.dream, base.reading, answer, context, store.history.filter { it.time != base.time })) {
                 is DreamResult.Ok -> {
                     // Eski kayıt yerine: rüya + ek bilgi + yeni yorum.
                     val entry = DreamEntry(System.currentTimeMillis(), base.dream + "\nEk bilgi: " + answer, r.text, r.by)
@@ -156,7 +156,7 @@ fun DreamScreen(store: DreamStore, onBack: () -> Unit, inSheet: Boolean = false)
         phase = Phase.Thinking
         liveReading = ""
         scope.launch {
-            val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, store.groqKey.value, dream) { text ->
+            val r = DreamInterpreter.interpret(store.apiKey.value, store.claudeKey.value, store.groqKey.value, dream, context, store.history.toList()) { text ->
                 mainHandler.post { liveReading = text }
             }
             when (r) {
